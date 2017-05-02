@@ -14,3 +14,4 @@ Depends:
     rRoma,
     shiny,
     plotly
+RoxygenNote: 6.0.1

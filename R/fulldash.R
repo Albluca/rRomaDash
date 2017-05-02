@@ -1,5 +1,14 @@
 
 
+#' Title
+#'
+#' @param RomaData
+#' @param ExpMat
+#' @param Groups
+#'
+#' @return
+#'
+#' @examples
 Initialize <- function(RomaData, ExpMat, Groups){
 
 
@@ -74,6 +83,17 @@ Initialize <- function(RomaData, ExpMat, Groups){
 
 
 
+#' Title
+#'
+#' @param RomaData
+#' @param ExpMat
+#' @param Groups
+#' @param Interactive
+#'
+#' @return
+#' @export
+#'
+#' @examples
 rRomaDash <- function(RomaData = NULL,
                       ExpMat = NULL,
                       Groups = NULL,
@@ -85,14 +105,14 @@ rRomaDash <- function(RomaData = NULL,
    # preprocess data ---------------------------------------------------------
 
   library(plotly)
-  if(Interactive){
-    print("Using plotly. This can cause problems on some systems. Try setting 'Interactive = FALSE' if errors are encountered")
-  } else {
-    if(R.utils::isPackageLoaded("plotly")){
-      print("Detaching plotly.")
-      detach("package:plotly", unload=TRUE)
-    }
-  }
+  # if(Interactive){
+  #   print("Using plotly. This can cause problems on some systems. Try setting 'Interactive = FALSE' if errors are encountered")
+  # } else {
+  #   if(R.utils::isPackageLoaded("plotly")){
+  #     print("Detaching plotly.")
+  #     detach("package:plotly", unload=TRUE)
+  #   }
+  # }
 
   InitReturn <- Initialize(RomaData, ExpMat, Groups)
 
@@ -106,6 +126,15 @@ rRomaDash <- function(RomaData = NULL,
   ProcessedSamples <- InitReturn$ProcessedSamples
 
   tSNEProj <- PCAProj
+
+  InternalGMTList <- list("Molecular signature DB (v6.0)" = "MsigDB",
+                         "ACSN Globlal Map (v1.1)" = "ACSN_Global",
+                         "ACSN Apoptosis Map (v1.1)" = "ACSN_Apoptosis",
+                         "ACSN Cell Cycle Map (v1.1)" = "ACSN_CellCycle",
+                         "ACSN DNA Repair Map (v1.1)" = "ACSN_DNARepair",
+                         "ACSN EMT Map (v1.1)" = "ACSN_EMT",
+                         "ACSN Survival Map (v1.1)" = "ACSN_Survival")
+
 
   # define ui ---------------------------------------------------------
 
@@ -128,43 +157,138 @@ rRomaDash <- function(RomaData = NULL,
                         mainPanel(
                           tabsetPanel(
 
-                            tabPanel("Genesets",
+                            # Data input ---------------------------------------------------------
 
-                                     selectInput("gmtsrc", "Geneset source:",
-                                                 list("File" = "File",
-                                                      "MSig" = "MSig",
-                                                      "Predefined", "Predefined")),
+                            tabPanel("Input",
+                                     fluidPage(
 
-                                     conditionalPanel(
-                                       condition="input.gmtsrc == 'File'",
-                                       fileInput("gmtfile", "Choose a GMT file", accept = c(".gmt"))
+                                       fluidRow(
+                                         titlePanel("Expression matrix"),
+                                         column(12,
+                                                fileInput("expmatfile", "Choose an expresison matrix (TSV or CSV file)", accept = c(".tsv", ".csv"))
+                                                )
+                                       ),
+
+                                       fluidRow(
+                                         titlePanel("Geneset list"),
+                                         column(6,
+
+                                                selectInput("gmtsrc", "Geneset source:",
+                                                            list("Local file" = "File",
+                                                                 "Internal DB" = "Internal")),
+
+                                                conditionalPanel(
+                                                  condition="input.gmtsrc == 'File'",
+                                                  fileInput("gmtfile", "Choose a GMT file", accept = c(".gmt"))
+                                                ),
+
+                                                conditionalPanel(
+                                                  condition="input.gmtsrc == 'Internal'",
+                                                  selectInput("gmtlist", "Available geneset list:", InternalGMTList)
+                                                )
+
+                                                ),
+
+                                         column(6,
+                                                textInput("msigkw", "Keywords", ""),
+                                                checkboxInput("msigkwall", "search all keywords", FALSE)
+                                         ),
+
+                                         column(12,
+                                                actionButton("searchDB", "Apply")
+                                         )
+
+                                       ),
+
+                                       fluidRow(
+                                         titlePanel("Available Genesets:"),
+                                         column(12,
+                                                dataTableOutput("PrintGeneSets"))
+                                         )
+                                       )
+
                                      ),
 
-                                     conditionalPanel(
-                                       condition="input.gmtsrc == 'Predefined'",
-                                       textInput("msigkw", "Keywords", "hallmark"),
-                                       selectInput("gmtlist", "Available genesets:",
-                                                   list("A" = "A",
-                                                        "B" = "B",
-                                                        "C", "C"))
+                            # Parameters ---------------------------------------------------------
+
+                            tabPanel("Parameters",
+
+                                     fluidPage(title = "Base parameters",
+                                               titlePanel("Base parameters"),
+                                                column(6, selectInput("par_FixedCenter", "FixedCenter",
+                                                                      list("TRUE" = "TRUE", "FALSE" = "FALSE"), selected = "FALSE"),
+                                                       selectInput("par_PCSignMode", "PCSignMode",
+                                                                   list("none" = "none",
+                                                                        "PreferActivation" = "PreferActivation",
+                                                                        "UseAllWeights" = "UseAllWeights",
+                                                                        "PreferActivation" = "PreferActivation",
+                                                                        "UseKnownWeights" = "UseKnownWeights",
+                                                                        "UseAllWeights" = "UseAllWeights",
+                                                                        "CorrelateAllWeightsByGene" = "CorrelateAllWeightsByGene",
+                                                                        "CorrelateKnownWeightsByGene" = "CorrelateKnownWeightsByGene",
+                                                                        "CorrelateAllWeightsBySample" = "CorrelateAllWeightsBySample"),
+                                                                   selected = "CorrelateAllWeightsByGene"),
+                                                       textInput("par_nSamples", "nSamples", "100"),
+                                                       textInput("par_GeneOutThr", "GeneOutThr", "5")
+                                                       ),
+                                                column(6,
+                                                       selectInput("par_UseParallel", "UseParallel",
+                                                                      list("TRUE" = "TRUE", "FALSE" = "FALSE"), selected = "TRUE"),
+                                                       conditionalPanel(condition="input.par_UseParallel == 'TRUE'",
+                                                         selectInput("par_nCores", "nCores",
+                                                                     list("1" = "1", "2" = "2", "3" = "3", "4" = "4",
+                                                                          "4" = "4", "5" = "5", "6" = "6", "7" = "7",
+                                                                          "8" = "8", "9" = "9", "10" = "10", "11" = "11"), selected = "3"),
+                                                         textInput("par_ClusType", "ClusType", "PSOCK")
+                                                       )
+
+                                                       )
                                      ),
-                                     textInput("msigkw", "Keywords", "hallmark"),
-                                     checkboxInput("msigkwall", "search all keywords", FALSE)
+
+                                     fluidPage(title = "Advanced parameters",
+                                               titlePanel("Advanced parameters"),
+                                                column(4, selectInput("par_UseWeigths", "UseWeigths",
+                                                                      list("TRUE" = "TRUE", "FALSE" = "FALSE"), selected = "FALSE"),
+                                                       selectInput("par_FullSampleInfo", "FullSampleInfo",
+                                                                   list("TRUE" = "TRUE", "FALSE" = "FALSE"), selected = "FALSE"),
+                                                       selectInput("par_centerData", "centerData",
+                                                                   list("TRUE" = "TRUE", "FALSE" = "FALSE"), selected = "TRUE"),
+                                                       selectInput("par_GeneSelMode", "GeneSelMode",
+                                                                   list("All" = "All", "Others" = "Others"), selected = "TRUE"),
+                                                       textInput("par_Ncomp", "Ncomp", "5"),
+                                                       textInput("par_DefaultWeight", "DefaultWeight", "1")
+                                                       ),
+
+                                                column(4, selectInput("par_SampleFilter", "SampleFilter",
+                                                                      list("TRUE" = "TRUE", "FALSE" = "FALSE"), selected = "TRUE"),
+                                                       selectInput("par_ExpFilter", "ExpFilter",
+                                                                   list("TRUE" = "TRUE", "FALSE" = "FALSE"), selected = "FALSE"),
+                                                       selectInput("par_MoreInfo", "MoreInfo",
+                                                                   list("TRUE" = "TRUE", "FALSE" = "FALSE"), selected = "FALSE"),
+                                                       selectInput("par_GeneOutDetection", "GeneOutDetection",
+                                                                   list("L1OutVarPerc" = "L1OutVarPerc",
+                                                                        "L1OutVarDC" = "L1OutVarDC",
+                                                                        "L1OutExpOut" = "L1OutExpOut",
+                                                                        "L1OutSdMean" = "L1OutSdMean"), selected = "L1OutVarPerc"),
+                                                       textInput("par_OutGeneNumber", "OutGeneNumber", "5"),
+                                                       textInput("par_OutGeneSpace", "OutGeneSpace", "NULL")
+                                                       ),
+
+                                                column(4, textInput("par_MinGenes", "MinGenes", "10"),
+                                                       textInput("par_MaxGenes", "MaxGenes", "500"),
+                                                       textInput("par_ApproxSamples", "ApproxSamples", "5"),
+                                                       textInput("par_PCSignThr", "PCSignThr", "NULL"),
+                                                       selectInput("par_CorMethod", "CorMethod",
+                                                                   list("pearson" = "pearson",
+                                                                        "kendall" = "kendall",
+                                                                        "spearman" = "spearman"), selected = "pearson"))
+                                     )
 
 
                                      ),
 
-                            tabPanel("Data"
 
-
-                                     ),
-
-                            tabPanel("Parameters"
-
-
-                                     ),
-
-
+                            # Output ---------------------------------------------------------
 
                             tabPanel("Output"
 
@@ -172,9 +296,8 @@ rRomaDash <- function(RomaData = NULL,
                             )
 
                           )
+                          )
                         )
-                      )
-
                       ),
 
              # Data summary ---------------------------------------------------------
@@ -387,6 +510,77 @@ rRomaDash <- function(RomaData = NULL,
   server <- function(input, output, session) {
 
     options(shiny.maxRequestSize=250*1024^2)
+
+
+    # Load GMT file ---------------------------------------------------------
+
+    GetGMTFile <- reactive({
+
+      inFile <- input$gmtfile
+
+      if(is.null(inFile)){
+        return(NULL)
+      } else {
+        print(paste("Loading", inFile$datapath))
+
+        if(trimws(input$msigkw) == ""){
+          KWStrings <- ""
+        } else {
+          KWStrings <- unlist(strsplit(trimws(input$msigkw), split = " ", fixed = TRUE))
+        }
+
+        LoadedData <- ReadGMTFile(FileLocation = inFile$datapath,
+                                  SearchString = KWStrings,
+                                  Mode = ifelse(input$msigkwall, "ALL", "ANY"))
+
+        return(LoadedData)
+      }
+
+    })
+
+
+    # Get GMT list ---------------------------------------------------------
+
+
+    GetModuleList <- eventReactive(input$searchDB, {
+
+      if(input$gmtsrc == "File"){
+
+        ModuleList <- GetGMTFile()
+        return(ModuleList)
+
+      }
+
+      if(input$gmtsrc == "Internal"){
+
+        if(trimws(input$msigkw) == ""){
+          KWStrings <- ""
+        } else {
+          KWStrings <- unlist(strsplit(trimws(input$msigkw), split = " ", fixed = TRUE))
+        }
+
+        return(SelectFromInternalDB(SearchString = KWStrings,
+                                    Mode = ifelse(input$msigkwall, "ALL", "ANY"),
+                                    BDName = input$gmtlist, Version = NULL)
+        )
+
+      }
+
+    }, ignoreInit = TRUE)
+
+
+
+    output$PrintGeneSets <- renderDataTable({
+
+      ModuleList <- GetModuleList()
+
+      ModuleDF <- data.frame(Names = unlist(lapply(ModuleList, "[[", "Name")),
+                             Genes = unlist(lapply(lapply(ModuleList, "[[", "Genes"), length)))
+
+      ModuleDF
+
+    })
+
 
 
     # data table for GMT ---------------------------------------------------------
