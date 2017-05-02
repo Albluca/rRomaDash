@@ -40,6 +40,7 @@ Initialize <- function(RomaData, ExpMat, Groups){
 
     Groups <- rep("N/A", length(ProcessedSamples))
     names(Groups) <- ProcessedSamples
+    FoundSamp = NULL
 
     AddInfo <- NULL
     SelList <- list("By sample" = "sample")
@@ -114,6 +115,12 @@ rRomaDash <- function(RomaData = NULL,
   #   }
   # }
 
+  ROMADataLoaded <- FALSE
+  ROMAInputLoaded <- FALSE
+
+  ROMADataLoaded.Time <- NULL
+  ROMAInputLoaded.Time <- NULL
+
   InitReturn <- Initialize(RomaData, ExpMat, Groups)
 
   FoundSamp <- InitReturn$FoundSamp
@@ -150,7 +157,8 @@ rRomaDash <- function(RomaData = NULL,
 
                         # Sidebar with a slider input
                         sidebarPanel(
-                          actionButton("doROMA", "Execute rROMA")
+                          actionButton("doROMA", "Execute rROMA"),
+                          htmlOutput("ROMA.Out")
                         ),
 
                         # Show a plot of the generated distribution
@@ -165,8 +173,15 @@ rRomaDash <- function(RomaData = NULL,
                                        fluidRow(
                                          titlePanel("Expression matrix"),
                                          column(12,
-                                                fileInput("expmatfile", "Choose an expresison matrix (TSV or CSV file)", accept = c(".tsv", ".csv"))
+                                                fileInput("expmatfile", "Choose an expresison matrix (TSV file)", accept = c(".tsv"))
                                                 )
+                                       ),
+
+                                       fluidRow(
+                                         titlePanel("Sample groups"),
+                                         column(12,
+                                                fileInput("groupfile", "Choose an group matrix (TSV file)", accept = c(".tsv"))
+                                         )
                                        ),
 
                                        fluidRow(
@@ -285,15 +300,7 @@ rRomaDash <- function(RomaData = NULL,
                                      )
 
 
-                                     ),
-
-
-                            # Output ---------------------------------------------------------
-
-                            tabPanel("Output"
-
-
-                            )
+                                     )
 
                           )
                           )
@@ -570,6 +577,8 @@ rRomaDash <- function(RomaData = NULL,
 
 
 
+    # Print selected genesets ---------------------------------------------------------
+
     output$PrintGeneSets <- renderDataTable({
 
       ModuleList <- GetModuleList()
@@ -579,6 +588,105 @@ rRomaDash <- function(RomaData = NULL,
 
       ModuleDF
 
+    })
+
+
+
+    # Load expression matrix ---------------------------------------------------------
+
+    GetExpMat <- reactive({
+
+      inFile <- input$expmatfile
+
+      if(is.null(inFile)){
+        return(NULL)
+      } else {
+        print(paste("Loading", inFile$datapath))
+
+        PlainFile <- readr::read_tsv(file = inFile$datapath, col_names = TRUE)
+
+        ExpMat <- data.matrix(PlainFile[,-1])
+        rownames(ExpMat) <- unlist(PlainFile[,1])
+
+        return(ExpMat)
+      }
+
+    })
+
+
+
+    # Load Group file ---------------------------------------------------------
+
+    GetGroups <- reactive({
+
+      inFile <- input$groupfile
+
+      if(is.null(inFile)){
+        return(NULL)
+      } else {
+        print(paste("Loading", inFile$datapath))
+
+        PlainFile <- readr::read_tsv(file = inFile$datapath, col_names = FALSE)
+
+        GroupVect <- unlist(PlainFile[,2])
+        names(GroupVect) <- unlist(PlainFile[,1])
+
+        return(GroupVect)
+      }
+
+    })
+
+
+
+    # Do rROMA ---------------------------------------------------------
+
+    RunROMA <- eventReactive(input$doROMA, {
+
+      print("Running ROMA")
+
+      # Get expression matrix
+      MatData <- GetExpMat()
+
+      # Get groups
+      GroupVect <- GetGroups()
+
+      # Get Module list
+      ModuleList <- GetModuleList()
+
+      if(is.null(MatData) | is.null(ModuleList)){
+        return(NULL)
+      } else {
+        RomaData <- rRoma.R(ExpressionMatrix = MatData, ModuleList = ModuleList)
+        ROMAInputLoaded <<- TRUE
+        ROMAInputLoaded.Time <<- Sys.time()
+        return(RomaData)
+      }
+
+    }, ignoreInit = TRUE)
+
+
+    GetROMA <- reactive({
+
+      # input$doROMA
+
+      RomaOutput <- RunROMA()
+
+      return(RomaOutput)
+
+    })
+
+
+    # Do print ROMA results ---------------------------------------------------------
+
+    output$ROMA.Out <- renderUI({
+
+      RomaData <- GetROMA()
+
+      if(is.null(RomaData$Results)){
+        return(NULL)
+      }
+
+      HTML("ROMA done")
     })
 
 
@@ -660,15 +768,30 @@ rRomaDash <- function(RomaData = NULL,
 
     # load data ---------------------------------------------------------
 
+    GetROMAData <- reactive({
+
+      print("Loading data")
+      ROMADataLoaded.Time <<- Sys.time()
+      return(input$prev.rRoma)
+
+    })
+
     GetData <- reactive({
 
-      inFile <- input$prev.rRoma
+      print("Getting Data")
 
-      if(is.null(inFile)){
+      print("Trying to load ROMA data")
+      LoadDataStatus <- GetROMAData()
+
+      print("Trying to load ROMA input")
+      LoadInputStatus <- GetROMA()
+
+      print("Sources parsed")
+
+      if(is.null(LoadDataStatus) & is.null(LoadInputStatus)){
 
         return(list(
           RomaData = RomaData,
-          Groups = Groups,
           ExpMat = ExpMat,
           FoundSamp = FoundSamp,
           Groups = Groups,
@@ -678,11 +801,13 @@ rRomaDash <- function(RomaData = NULL,
           ProcessedSamples = ProcessedSamples
         ))
 
-      } else {
+      }
 
-        print(paste("Loading", inFile$datapath))
+      if(!is.null(LoadDataStatus) & is.null(LoadInputStatus)){
 
-        LoadedData <- readRDS(inFile$datapath)
+        print(paste("Loading", LoadDataStatus$datapath))
+
+        LoadedData <- readRDS(LoadDataStatus$datapath)
 
         InitReturn <- Initialize(LoadedData$RomaData, LoadedData$ExpMat, LoadedData$Groups)
 
@@ -691,9 +816,10 @@ rRomaDash <- function(RomaData = NULL,
         updateSelectInput(session, inputId = "htype", choices = SelList)
         updateSelectInput(session, inputId = "aggfun", choices = SelListAF)
 
+        print("Passing on the information from the rds")
+
         return(list(
           RomaData = LoadedData$RomaData,
-          Groups = LoadedData$Groups,
           ExpMat = LoadedData$ExpMat,
           FoundSamp = InitReturn$FoundSamp,
           Groups = InitReturn$Groups,
@@ -704,6 +830,92 @@ rRomaDash <- function(RomaData = NULL,
         ))
 
       }
+
+      if(is.null(LoadDataStatus) & !is.null(LoadInputStatus)){
+
+        print("Passing on the information from the analysis")
+
+        InitReturn <- Initialize(LoadInputStatus, GetExpMat(), GetGroups())
+
+        SelList <<- InitReturn$SelList
+        SelListAF <<- InitReturn$SelListAF
+        updateSelectInput(session, inputId = "htype", choices = SelList)
+        updateSelectInput(session, inputId = "aggfun", choices = SelListAF)
+
+        return(list(
+          RomaData = LoadInputStatus,
+          ExpMat = GetExpMat(),
+          FoundSamp = InitReturn$FoundSamp,
+          Groups = InitReturn$Groups,
+          AddInfo = InitReturn$AddInfo,
+          GSList = InitReturn$GSList,
+          PCAProj = InitReturn$PCAProj,
+          ProcessedSamples = InitReturn$ProcessedSamples
+        ))
+
+      }
+
+      if(!is.null(LoadDataStatus) & !is.null(LoadInputStatus)){
+
+        if(ROMADataLoaded.Time > ROMAInputLoaded.Time){
+          # Using ROMA data
+
+          print("Passing on the information from the rds")
+
+          print(paste("Loading", LoadDataStatus$datapath))
+
+          LoadedData <- readRDS(LoadDataStatus$datapath)
+
+          InitReturn <- Initialize(LoadedData$RomaData, LoadedData$ExpMat, LoadedData$Groups)
+
+        } else {
+          # Using The computed ROMA info
+
+          print("Passing on the information from the analysis")
+
+          InitReturn <- Initialize(LoadInputStatus, GetExpMat(), GetGroups())
+
+        }
+
+        SelList <<- InitReturn$SelList
+        SelListAF <<- InitReturn$SelListAF
+        updateSelectInput(session, inputId = "htype", choices = SelList)
+        updateSelectInput(session, inputId = "aggfun", choices = SelListAF)
+
+
+        if(ROMADataLoaded.Time > ROMAInputLoaded.Time){
+
+          return(list(
+            RomaData = LoadedData$RomaData,
+            ExpMat = LoadedData$ExpMat,
+            FoundSamp = InitReturn$FoundSamp,
+            Groups = InitReturn$Groups,
+            AddInfo = InitReturn$AddInfo,
+            GSList = InitReturn$GSList,
+            PCAProj = InitReturn$PCAProj,
+            ProcessedSamples = InitReturn$ProcessedSamples
+          ))
+
+        } else {
+
+          return(list(
+            RomaData = LoadInputStatus,
+            ExpMat = GetExpMat(),
+            FoundSamp = InitReturn$FoundSamp,
+            Groups = InitReturn$Groups,
+            AddInfo = InitReturn$AddInfo,
+            GSList = InitReturn$GSList,
+            PCAProj = InitReturn$PCAProj,
+            ProcessedSamples = InitReturn$ProcessedSamples
+          ))
+
+        }
+
+
+
+
+      }
+
 
     })
 
