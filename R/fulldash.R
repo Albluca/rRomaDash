@@ -11,7 +11,6 @@
 #' @examples
 Initialize <- function(RomaData, ExpMat, Groups){
 
-
   if(is.null(RomaData)){
     return(list(FoundSamp = NULL, Groups = Groups, AddInfo = NULL,
                 SelList = list(), SelListAF = list(), GSList = list(),
@@ -158,7 +157,8 @@ rRomaDash <- function(RomaData = NULL,
                         # Sidebar with a slider input
                         sidebarPanel(
                           actionButton("doROMA", "Execute rROMA"),
-                          htmlOutput("ROMA.Out")
+                          hr(),
+                          htmlOutput("ROMAOut")
                         ),
 
                         # Show a plot of the generated distribution
@@ -172,15 +172,18 @@ rRomaDash <- function(RomaData = NULL,
 
                                        fluidRow(
                                          titlePanel("Expression matrix"),
-                                         column(12,
+                                         column(8,
                                                 fileInput("expmatfile", "Choose an expresison matrix (TSV file)", accept = c(".tsv"))
                                                 )
                                        ),
 
                                        fluidRow(
                                          titlePanel("Sample groups"),
-                                         column(12,
+                                         column(8,
                                                 fileInput("groupfile", "Choose an group matrix (TSV file)", accept = c(".tsv"))
+                                         ),
+                                         column(4,
+                                                checkboxInput("usegroups", "Use groups", TRUE)
                                          )
                                        ),
 
@@ -418,9 +421,9 @@ rRomaDash <- function(RomaData = NULL,
                           conditionalPanel(
                             condition="input.ResTabs == 'Heatmap'",
                             sliderInput("llim", "Lower limit",
-                                        max = 0,  min = -5,  value = -5, step = .1),
+                                        max = 0,  min = -100,  value = -100, step = .1),
                             sliderInput("ulim", "Upper limit",
-                                        max = 5,  min = 0,  value = 5, step = .1)
+                                        max = 100,  min = 0,  value = 100, step = .1)
                           ),
 
                           conditionalPanel(
@@ -475,7 +478,11 @@ rRomaDash <- function(RomaData = NULL,
                                                  )
                                                }
 
-                                               )
+                                               ),
+
+                                      tabPanel("ACSN", id = "tab4"
+
+                                      )
                           )
 
                         )
@@ -493,7 +500,8 @@ rRomaDash <- function(RomaData = NULL,
                         fluidRow(
                           column(6, wellPanel(
                               helpText("Uploada previously performed rRoma analysis"),
-                              fileInput("prev.rRoma", "Choose an rRoma file", accept = c(".rds"))
+                              fileInput("prev.rRoma", "Choose an rRoma file", accept = c(".rds")),
+                              actionButton("RDSload", "Load data")
                             )
                           ),
 
@@ -517,7 +525,6 @@ rRomaDash <- function(RomaData = NULL,
   server <- function(input, output, session) {
 
     options(shiny.maxRequestSize=250*1024^2)
-
 
     # Load GMT file ---------------------------------------------------------
 
@@ -548,7 +555,6 @@ rRomaDash <- function(RomaData = NULL,
 
     # Get GMT list ---------------------------------------------------------
 
-
     GetModuleList <- eventReactive(input$searchDB, {
 
       if(input$gmtsrc == "File"){
@@ -573,9 +579,7 @@ rRomaDash <- function(RomaData = NULL,
 
       }
 
-    }, ignoreInit = TRUE)
-
-
+    }, ignoreInit = FALSE)
 
     # Print selected genesets ---------------------------------------------------------
 
@@ -619,6 +623,10 @@ rRomaDash <- function(RomaData = NULL,
 
     GetGroups <- reactive({
 
+      if(!input$usegroups){
+        return(NULL)
+      }
+
       inFile <- input$groupfile
 
       if(is.null(inFile)){
@@ -637,6 +645,21 @@ rRomaDash <- function(RomaData = NULL,
     })
 
 
+    LoadPastRoma <- eventReactive(input$RDSload, {
+
+      print("Loading data")
+
+      FileName <- input$prev.rRoma
+
+      if(!is.null(FileName)){
+        print("Setting load timestamp")
+        ROMADataLoaded.Time <<- Sys.time()
+      }
+
+      return(FileName)
+
+    }, ignoreInit = FALSE, ignoreNULL = FALSE)
+
 
     # Do rROMA ---------------------------------------------------------
 
@@ -647,46 +670,96 @@ rRomaDash <- function(RomaData = NULL,
       # Get expression matrix
       MatData <- GetExpMat()
 
+      if(is.null(MatData)){
+        return(NULL)
+      }
+
       # Get groups
       GroupVect <- GetGroups()
 
       # Get Module list
       ModuleList <- GetModuleList()
 
-      if(is.null(MatData) | is.null(ModuleList)){
+      if(is.null(ModuleList)){
         return(NULL)
-      } else {
-        RomaData <- rRoma.R(ExpressionMatrix = MatData, ModuleList = ModuleList)
-        ROMAInputLoaded <<- TRUE
-        ROMAInputLoaded.Time <<- Sys.time()
-        return(RomaData)
       }
 
-    }, ignoreInit = TRUE)
+      Cleaned_OutGeneSpace <- NULL
+      if(input$par_OutGeneSpace != "NULL"){
+        Cleaned_OutGeneSpace <- as.numeric(input$par_OutGeneSpace)
+      }
+
+      Cleaned_PCSignThr <- NULL
+      if(input$par_PCSignThr != "NULL"){
+        Cleaned_PCSignThr <- as.numeric(input$par_PCSignThr)
+      }
 
 
-    GetROMA <- reactive({
+      RomaData <- rRoma.R(
+        ExpressionMatrix = MatData, ModuleList = ModuleList,
+        FixedCenter = eval(parse(text=input$par_FixedCenter)),
+        PCSignMode = input$par_PCSignMode,
+        nSamples = as.integer(input$par_nSamples),
+        GeneOutThr = as.integer(input$par_GeneOutThr),
+        UseParallel = eval(parse(text=input$par_UseParallel)),
+        nCores = as.integer(input$par_nCores),
+        ClusType = input$par_ClusType,
+        UseWeigths = eval(parse(text=input$par_UseWeigths)),
+        FullSampleInfo = eval(parse(text=input$par_FullSampleInfo)),
+        centerData = eval(parse(text=input$par_centerData)),
+        GeneSelMode = input$par_GeneSelMode,
+        Ncomp = as.integer(input$par_Ncomp),
+        DefaultWeight = as.numeric(input$par_DefaultWeight),
+        SampleFilter = eval(parse(text=input$par_SampleFilter)),
+        ExpFilter = eval(parse(text=input$par_ExpFilter)),
+        MoreInfo = eval(parse(text=input$par_MoreInfo)),
+        GeneOutDetection = input$par_GeneOutDetection,
+        OutGeneNumber = as.numeric(input$par_OutGeneNumber),
+        OutGeneSpace = Cleaned_OutGeneSpace,
+        MinGenes = as.integer(input$par_MinGenes),
+        MaxGenes = as.integer(input$par_MaxGenes),
+        ApproxSamples = as.numeric(input$par_ApproxSamples),
+        CorMethod = input$par_CorMethod,
+        PCSignThr = Cleaned_PCSignThr,
+        PlotData = FALSE, PCADims = 2, SamplingGeneWeights = NULL, FillNAMethod = list(),
+        Grouping = NULL, GroupPCSign = FALSE
+      )
 
-      # input$doROMA
+      ROMAInputLoaded <<- TRUE
+      ROMAInputLoaded.Time <<- Sys.time()
+      return(RomaData)
 
-      RomaOutput <- RunROMA()
+    }, ignoreInit = FALSE, ignoreNULL = FALSE)
 
-      return(RomaOutput)
-
-    })
 
 
     # Do print ROMA results ---------------------------------------------------------
 
-    output$ROMA.Out <- renderUI({
+    output$ROMAOut <- renderUI({
 
-      RomaData <- GetROMA()
+      ExpMat <- GetExpMat()
 
-      if(is.null(RomaData$Results)){
-        return(NULL)
+      GroupMat <- GetGroups()
+
+      # Get expression matrix
+      if(!is.null(ExpMat)){
+        str1 <- "Expression matrix loaded"
+      } else {
+        str1 <- "Expression matrix missing"
       }
 
-      HTML("ROMA done")
+      if(!is.null(GroupMat)){
+        if(input$usegroups){
+          str2 <- "Group data loaded"
+        } else {
+          str2 <- "Group data loaded, but ignored"
+        }
+      } else {
+        str2 <- "Group information missing"
+      }
+
+      return(HTML(paste(str1, str2, sep = '<br/>')))
+
     })
 
 
@@ -733,17 +806,17 @@ rRomaDash <- function(RomaData = NULL,
 
     output$PrintGroup <- renderDataTable({
 
-      RomaData <- GetData()$RomaData
+      RomaData <- GetData()
 
-      if(is.null(RomaData)){
+      if(is.null(RomaData$Groups)){
         return(NULL)
       }
 
-      ModuleDF <- data.frame(Sample = names(RomaData$InputPars$Grouping),
-                             Group = RomaData$InputPars$Grouping)
+      ModuleDF <- data.frame(Sample = names(RomaData$Groups),
+                             Group = RomaData$Groups)
       rownames(ModuleDF) <- NULL
 
-      ModuleDF[order(ModuleDF$Sample),]
+      ModuleDF
 
     })
 
@@ -768,27 +841,32 @@ rRomaDash <- function(RomaData = NULL,
 
     # load data ---------------------------------------------------------
 
-    GetROMAData <- reactive({
-
-      print("Loading data")
-      ROMADataLoaded.Time <<- Sys.time()
-      return(input$prev.rRoma)
-
-    })
+    # GetROMAData <- reactive({
+    #
+    #   print("Loading data")
+    #
+    #   FileName <- input$prev.rRoma
+    #
+    #   if(!is.null(FileName)){
+    #     print("Setting load timestamp")
+    #     ROMADataLoaded.Time <<- Sys.time()
+    #   }
+    #
+    #   return(FileName)
+    #
+    # })
 
     GetData <- reactive({
 
       print("Getting Data")
 
       print("Trying to load ROMA data")
-      LoadDataStatus <- GetROMAData()
+      LoadDataStatus <- LoadPastRoma()
 
       print("Trying to load ROMA input")
-      LoadInputStatus <- GetROMA()
+      LoadInputStatus <- RunROMA()
 
-      print("Sources parsed")
-
-      if(is.null(LoadDataStatus) & is.null(LoadInputStatus)){
+      if(is.null(ROMADataLoaded.Time) & is.null(ROMAInputLoaded.Time)){
 
         return(list(
           RomaData = RomaData,
@@ -803,7 +881,7 @@ rRomaDash <- function(RomaData = NULL,
 
       }
 
-      if(!is.null(LoadDataStatus) & is.null(LoadInputStatus)){
+      if(!is.null(ROMADataLoaded.Time) & is.null(ROMAInputLoaded.Time)){
 
         print(paste("Loading", LoadDataStatus$datapath))
 
@@ -831,7 +909,7 @@ rRomaDash <- function(RomaData = NULL,
 
       }
 
-      if(is.null(LoadDataStatus) & !is.null(LoadInputStatus)){
+      if(is.null(ROMADataLoaded.Time) & !is.null(ROMAInputLoaded.Time)){
 
         print("Passing on the information from the analysis")
 
@@ -855,7 +933,7 @@ rRomaDash <- function(RomaData = NULL,
 
       }
 
-      if(!is.null(LoadDataStatus) & !is.null(LoadInputStatus)){
+      if(!is.null(ROMADataLoaded.Time) & !is.null(ROMAInputLoaded.Time)){
 
         if(ROMADataLoaded.Time > ROMAInputLoaded.Time){
           # Using ROMA data
