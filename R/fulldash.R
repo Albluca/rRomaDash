@@ -262,7 +262,8 @@ rRomaDash <- function(RomaData = NULL,
                                                                      list("1" = "1", "2" = "2", "3" = "3", "4" = "4",
                                                                           "4" = "4", "5" = "5", "6" = "6", "7" = "7",
                                                                           "8" = "8", "9" = "9", "10" = "10", "11" = "11"), selected = "3"),
-                                                         textInput("par_ClusType", "ClusType", "PSOCK")
+                                                         selectInput("par_ClusType", "ClusType",
+                                                                     list("PSOCK", "FORK"), selected = "PSOCK")
                                                        )
 
                                                        )
@@ -1268,7 +1269,7 @@ rRomaDash <- function(RomaData = NULL,
           Projs <- GettSNEGS()
         }
 
-        p <- ggplot2::ggplot(data = data.frame(Comp1 = Projs[,2],
+        p <- ggplot2::ggplot(data = data.frame(Comp1 = Projs[,1],
                                                        Comp2 = Projs[,2],
                                                        Score = RomaData$ProjMatrix[SelectedGS(), ProcessedSamples],
                                                        Group = Groups[ProcessedSamples]),
