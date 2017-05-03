@@ -1955,6 +1955,16 @@ rRomaDash <- function(RomaData = NULL,
 
     })
 
+    # Select samples by group (ACSN) ---------------------------------------------------------
+
+    observeEvent(input$selByGroup, {
+
+      Groups <- GetData()$Groups
+
+      updateCheckboxGroupInput(session, "selSamples", selected = names(Groups[Groups == input$selgroup]))
+
+    }, ignoreNULL = FALSE, ignoreInit = TRUE)
+
   }
 
 
