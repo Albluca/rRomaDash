@@ -141,12 +141,17 @@ rRomaDash <- function(RomaData = NULL,
                          "ACSN EMT Map (v1.1)" = "ACSN_EMT",
                          "ACSN Survival Map (v1.1)" = "ACSN_Survival")
 
+  MapList <- list("Apoptosis and mitochondria metabolism map" = "https://acsn.curie.fr/navicell/maps/apoptosis/master/index.php",
+                  "Cell survival map" = "https://acsn.curie.fr/navicell/maps/survival/master/index.php",
+                  "EMT and cell motility map" = "https://acsn.curie.fr/navicell/maps/emtcellmotility/master/index.php",
+                  "Cell cycle map" = "https://acsn.curie.fr/navicell/maps/apoptosis/cellcycle/index.php",
+                  "DNA repair map" = "https://acsn.curie.fr/navicell/maps/dnarepair/master/index.php")
 
   # define ui ---------------------------------------------------------
 
   ui <- navbarPage("rRoma dashboard",
 
-             # Perform analysis ---------------------------------------------------------
+             # Perform analysis (Top Tab 1) ---------------------------------------------------------
              tabPanel("Analyze Data",
 
                       pageWithSidebar(
@@ -310,7 +315,7 @@ rRomaDash <- function(RomaData = NULL,
                         )
                       ),
 
-             # Data summary ---------------------------------------------------------
+             # Data summary (Top Tab 2) ---------------------------------------------------------
              tabPanel("Summarize Info",
 
                       fluidPage(
@@ -327,7 +332,7 @@ rRomaDash <- function(RomaData = NULL,
 
                     ),
 
-             # Results ---------------------------------------------------------
+             # Results  (Top Tab 3) ---------------------------------------------------------
              tabPanel("Visualize Results",
 
                       pageWithSidebar(
@@ -445,6 +450,7 @@ rRomaDash <- function(RomaData = NULL,
 
                         mainPanel(
                           tabsetPanel(id = "ResTabs",
+                                      # SubTab 1 ---------------------------------------------------------
                                       tabPanel(title = "Modules",
                                                if(Interactive){
                                                  tabPanel("Plot",
@@ -461,10 +467,12 @@ rRomaDash <- function(RomaData = NULL,
                                                }
                                       ),
 
+                                      # SubTab 2 ---------------------------------------------------------
                                       tabPanel("Heatmap", id = "tab2",
                                                plotOutput("hmPlot", height = "800px")
                                                ),
 
+                                      # SubTab 3 ---------------------------------------------------------
                                       tabPanel("Correlation", id = "tab3",
                                                if(Interactive){
                                                  tabPanel("Plot",
@@ -480,7 +488,81 @@ rRomaDash <- function(RomaData = NULL,
 
                                                ),
 
-                                      tabPanel("ACSN", id = "tab4"
+                                      # SubTab 4 ---------------------------------------------------------
+                                      tabPanel("ACSN (Selection)", id = "tab4",
+                                               fluidPage(
+
+                                                 fluidRow(
+                                                   column(12,
+                                                    htmlOutput("SelGSTable")
+                                                   ),
+                                                   hr(),
+                                                   column(12,
+                                                          selectInput("mapurl", "Map to use:", MapList, width = "80%")
+                                                   ),
+                                                   hr(),
+                                                   column(12,
+                                                          checkboxGroupInput("selSamples", "Sample(s) to use:", inline = TRUE,
+                                                                             choices = character(0))
+                                                   )
+                                                 ),
+
+                                                 fluidRow(
+                                                   column(6,
+                                                          selectInput("selgroup", "Groups:", as.list(unique(Groups))),
+                                                          actionButton("selByGroup", "Select samples")
+                                                   ),
+                                                   column(6,
+                                                          selectInput("projtype", "Display mode:",
+                                                                      list("Module" = "Module", "Gene" = "Gene")),
+                                                          textInput("ACSNWeiFil", "Filtering threshold:", "20")
+                                                   )
+                                                 ),
+
+                                                 hr(),
+
+                                                 fluidRow(
+                                                   column(6,
+                                                          selectInput("scoreaggfun", "Score aggregation:",
+                                                                      list("mean" = "mean", "median" = "median",
+                                                                           "sd" = "sd", "IQR" = "IQR")),
+                                                          selectInput("geneaggfun", "Gene aggregation:",
+                                                                      list("mean" = "mean", "median" = "median",
+                                                                           "sd" = "sd", "IQR" = "IQR"))
+                                                          ),
+                                                   column(6,
+                                                          actionButton("doACSN", "Plot on ACSN map"),
+                                                          htmlOutput("ACSNStatus")
+                                                   )
+                                                 )
+                                               )
+
+
+                                      ),
+
+                                      tabPanel("ACSN (Info)", id = "tab5",
+                                               fluidPage(
+
+                                                 fluidRow(
+                                                   column(6,
+                                                          plotOutput("WeiVarBP")
+                                                          ),
+                                                   column(6,
+                                                          plotOutput("GeneMult")
+                                                   )
+                                                 ),
+
+                                                 fluidRow(
+                                                   column(6,
+                                                          plotOutput("ScoreDist")
+                                                   ),
+                                                   column(6,
+                                                          plotOutput("ScoreVar")
+                                                   )
+                                                 )
+
+                                               )
+
 
                                       )
                           )
@@ -491,7 +573,7 @@ rRomaDash <- function(RomaData = NULL,
 
                       ),
 
-             # Save / Load ---------------------------------------------------------
+             # Save / Load  (Top Tab 4) ---------------------------------------------------------
              tabPanel("Save/Load",
 
                       fluidPage(
@@ -644,6 +726,7 @@ rRomaDash <- function(RomaData = NULL,
 
     })
 
+    # Load previos ROMA file link ---------------------------------------------------------
 
     LoadPastRoma <- eventReactive(input$RDSload, {
 
@@ -841,21 +924,6 @@ rRomaDash <- function(RomaData = NULL,
 
     # load data ---------------------------------------------------------
 
-    # GetROMAData <- reactive({
-    #
-    #   print("Loading data")
-    #
-    #   FileName <- input$prev.rRoma
-    #
-    #   if(!is.null(FileName)){
-    #     print("Setting load timestamp")
-    #     ROMADataLoaded.Time <<- Sys.time()
-    #   }
-    #
-    #   return(FileName)
-    #
-    # })
-
     GetData <- reactive({
 
       print("Getting Data")
@@ -1041,6 +1109,7 @@ rRomaDash <- function(RomaData = NULL,
     observe({
 
       RomaData <- GetData()$RomaData
+      Groups <- GetData()$Groups
       Idx <- SelectedIdx()
 
       if(length(Idx)>0){
@@ -1054,6 +1123,7 @@ rRomaDash <- function(RomaData = NULL,
       updateSelectInput(session, "gs", choices = GSList, selected = GSList[[1]])
       updateSelectInput(session, "gs_x", choices = GSList, selected = GSList[[1]])
       updateSelectInput(session, "gs_y", choices = GSList, selected = GSList[[1]])
+      updateSelectInput(session, "selgroup", choices = as.list(unique(Groups)))
 
     })
 
@@ -1722,7 +1792,172 @@ rRomaDash <- function(RomaData = NULL,
 
       })
     }
+
+    # Selected GS datatable ---------------------------------------------------------
+
+    output$SelGSTable <- renderUI({
+
+      RomaData <- GetData()$RomaData
+
+      if(is.null(RomaData)){
+        return(NULL)
+      } else {
+        SelIdxs <- SelectedIdx()
+
+        HTML(paste(c("<b>Selected genesets:</b>", unlist(lapply(RomaData$ModuleSummary[SelIdxs], "[[", "ModuleName"))), collapse = '<br/>'))
+      }
+
+    })
+
+    # Update available samples ---------------------------------------------------------
+
+    observe({
+
+      RomaData <- GetData()$RomaData
+
+      if(!is.null(RomaData)){
+        Samples <- colnames(RomaData$ProjMatrix)
+        updateCheckboxGroupInput(session, "selSamples", choices = Samples, inline = TRUE)
+      }
+
+    })
+
+    # Plot on ACSN ---------------------------------------------------------
+
+    GetACSN <- eventReactive(input$doACSN, {
+
+      print("Initiating ACSN plotting")
+
+      SelIdxs <- SelectedIdx()
+      RomaData <- GetData()$RomaData
+
+      if(!is.null(input$selSamples) & !is.null(RomaData)){
+        RetData <- PlotOnACSN(
+          RomaData = RomaData, SampleName = input$selSamples, AggScoreFun = input$scoreaggfun,
+          MapURL = input$mapurl, Selected = SelIdxs, FilterByWei = as.numeric(input$ACSNWeiFil),
+          AggGeneFun = input$geneaggfun, DispMode = input$projtype, DefDispVal = 0,
+          PlotInfo = FALSE, ReturnInfo = TRUE)
+      } else {
+        RetData  <- NULL
+      }
+
+      return(RetData)
+
+    }, ignoreInit = TRUE, ignoreNULL = FALSE)
+
+
+    # Include Status (ACSN) ---------------------------------------------------------
+
+    output$ACSNStatus <- renderUI({
+      Test <- GetACSN()
+
+      if(is.null(Test)){
+        HTML("<i>Data not exported on ACSN</i>")
+      } else {
+        HTML("<b>Data exported to ACSN</b>")
+      }
+    })
+
+    # Plot weigth variation (ACSN) ---------------------------------------------------------
+
+    output$WeiVarBP <- renderPlot({
+
+      Data <- GetACSN()
+
+      if(!is.null(Data)){
+
+        p <- ggplot2::ggplot(data = data.frame(y = Data$GenesVar,
+                                               x = rep(1, length(Data$GenesVar))),
+                             mapping = ggplot2::aes(x = x, y = y)) +
+          ggplot2::geom_boxplot(mapping = ggplot2::aes(color = "Data")) +
+          ggplot2::labs(y = "Variance of gene weight") + ggplot2::scale_y_log10() +
+          ggplot2::geom_point(data = data.frame(x = rep(1, length(which(Data$GeneOut))),
+                                                y = Data$GenesVar[names(which(Data$GeneOut))]),
+                              mapping = ggplot2::aes(x = x, y = y, color="Outliers"), size = 3,
+                              inherit.aes = FALSE)
+
+        print(p)
+      }
+
+    })
+
+    # Plot gene multiplicity (ACSN) ---------------------------------------------------------
+
+    output$GeneMult <- renderPlot({
+
+      Data <- GetACSN()
+
+      if(!is.null(Data)){
+        if(!is.null(Data$GeneMult)){
+          p <- ggplot2::ggplot(data = data.frame(Data$GeneMult),
+                               mapping = ggplot2::aes(x = Freq)) +
+            ggplot2::geom_histogram(binwidth = 1) +
+            ggplot2::labs(y = "Frequency", x = "Gene multiplicity") + ggplot2::scale_y_log10()
+
+          print(p)
+        }
+      }
+
+    })
+
+    # Plot score distribution (ACSN) ---------------------------------------------------------
+
+    output$ScoreDist <- renderPlot({
+
+      Data <- GetACSN()
+
+      if(!is.null(Data)){
+
+        if((input$projtype == "Module") & !is.null(Data$GeneMult)){
+          p <- ggplot2::ggplot(data = data.frame(Data$ScoreDist,
+                                                 x = rep(1, length(Data$ScoreDist))),
+                               mapping = ggplot2::aes(x = x, y = data)) +
+            ggplot2::geom_boxplot() +
+            ggplot2::labs(y = "Gene score (Module)", x = "")
+
+          print(p)
+        }
+
+        if((input$projtype == "Gene") & !is.null(Data$WeiDist)){
+          p <- ggplot2::ggplot(data = data.frame(Data$WeiDist,
+                                                 x = rep(1, length(Data$WeiDist))),
+                               mapping = ggplot2::aes(x = x, y = data)) +
+            ggplot2::geom_boxplot() +
+            ggplot2::labs(y = "Gene score (Weight)", x = "")
+
+          print(p)
+        }
+      }
+
+    })
+
+
+    # Plot score variance (ACSN) ---------------------------------------------------------
+
+    output$ScoreVar <- renderPlot({
+
+      Data <- GetACSN()
+
+      if(!is.null(Data)){
+
+        if((input$projtype == "Module") & !is.null(Data$ScoreVar)){
+          p <- ggplot2::ggplot(data = data.frame(y = Data$ScoreVar,
+                                                 x = rep(1, length(Data$ScoreVar))),
+                               mapping = ggplot2::aes(x = x, y = y)) +
+            ggplot2::geom_boxplot() +
+            ggplot2::labs(y = "Gene score variance (per gene with multiplicity > 1)", x = "") +
+            ggplot2::scale_y_log10()
+
+          print(p)
+        }
+
+      }
+
+    })
+
   }
+
+
 
   # Run the application
   shinyApp(ui = ui, server = server)
