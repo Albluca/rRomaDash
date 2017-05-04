@@ -18,5 +18,6 @@ Imports:
     plotly,
     Rtsne,
     ggplot2,
-    R.utils
+    R.utils,
+    ggsignif
 RoxygenNote: 6.0.1
