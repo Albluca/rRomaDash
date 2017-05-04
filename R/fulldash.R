@@ -267,7 +267,8 @@ rRomaDash <- function(RomaData = NULL,
                                                          selectInput("par_nCores", "nCores",
                                                                      list("1" = "1", "2" = "2", "3" = "3", "4" = "4",
                                                                           "4" = "4", "5" = "5", "6" = "6", "7" = "7",
-                                                                          "8" = "8", "9" = "9", "10" = "10", "11" = "11"), selected = "3"),
+                                                                          "8" = "8", "9" = "9", "10" = "10", "11" = "11"),
+                                                                     selected = as.character(parallel::detectCores() - 1)),
                                                          selectInput("par_ClusType", "ClusType",
                                                                      list("PSOCK", "FORK"), selected = "PSOCK")
                                                        )
