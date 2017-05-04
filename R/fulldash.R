@@ -500,46 +500,49 @@ rRomaDash <- function(RomaData = NULL,
                                                fluidPage(
 
                                                  fluidRow(
+                                                   headerPanel("Map to use:"),
                                                    column(12,
-                                                          selectInput("mapurl", "Map to use:", MapList, width = "80%")
+                                                          selectInput("mapurl", "", MapList, width = "75%")
                                                    ),
-                                                   hr(),
+
+                                                   headerPanel("Selected genesets:"),
                                                    column(12,
-                                                          htmlOutput("SelGSTable")
+                                                          dataTableOutput("SelGSTable")
                                                    ),
-                                                   hr(),
+
+                                                   headerPanel("Sample(s) to use:"),
                                                    column(12,
-                                                          checkboxGroupInput("selSamples", "Sample(s) to use:", inline = TRUE,
+                                                          checkboxGroupInput("selSamples", "", inline = TRUE,
                                                                              choices = character(0))
                                                    )
                                                  ),
 
                                                  fluidRow(
+                                                   headerPanel("Group Selection:"),
                                                    column(6,
-                                                          selectInput("selgroup", "Groups:", as.list(unique(Groups))),
-                                                          actionButton("selByGroup", "Select group"),
-                                                          actionButton("selNone", "Clear selection")
+                                                          selectInput("selgroup", "Groups:", as.list(unique(Groups)))
                                                    ),
                                                    column(6,
-                                                          selectInput("projtype", "Display mode:",
-                                                                      list("Module" = "Module", "Gene" = "Gene")),
-                                                          textInput("ACSNWeiFil", "Filtering threshold:", "20")
+                                                          actionButton("selByGroup", "Select group"),
+                                                          actionButton("selNone", "Clear selection")
                                                    )
                                                  ),
 
-                                                 hr(),
-
                                                  fluidRow(
+                                                   headerPanel("Projection options:"),
+                                                   column(6,
+                                                          selectInput("projtype", "Display mode:",
+                                                                      list("Module" = "Module", "Gene" = "Gene")),
+                                                          textInput("ACSNWeiFil", "Filtering threshold:", "20"),
+                                                          actionButton("doACSN", "Plot on ACSN map")
+                                                   ),
                                                    column(6,
                                                           selectInput("scoreaggfun", "Score aggregation:",
                                                                       list("mean" = "mean", "median" = "median",
                                                                            "sd" = "sd", "IQR" = "IQR")),
                                                           selectInput("geneaggfun", "Gene aggregation:",
                                                                       list("mean" = "mean", "median" = "median",
-                                                                           "sd" = "sd", "IQR" = "IQR"))
-                                                          ),
-                                                   column(6,
-                                                          actionButton("doACSN", "Plot on ACSN map"),
+                                                                           "sd" = "sd", "IQR" = "IQR")),
                                                           htmlOutput("ACSNStatus")
                                                    )
                                                  )
@@ -556,13 +559,13 @@ rRomaDash <- function(RomaData = NULL,
                                                           plotOutput("WeiVarBP")
                                                           ),
                                                    column(6,
-                                                          plotOutput("GeneMult")
-                                                   )
+                                                          plotOutput("ScoreDist")
+                                                          )
                                                  ),
 
                                                  fluidRow(
                                                    column(6,
-                                                          plotOutput("ScoreDist")
+                                                          plotOutput("GeneMult")
                                                    ),
                                                    column(6,
                                                           plotOutput("ScoreVar")
@@ -1803,7 +1806,7 @@ rRomaDash <- function(RomaData = NULL,
 
     # Selected GS datatable ---------------------------------------------------------
 
-    output$SelGSTable <- renderUI({
+    output$SelGSTable <- renderDataTable({
 
       RomaData <- GetData()$RomaData
 
@@ -1812,7 +1815,9 @@ rRomaDash <- function(RomaData = NULL,
       } else {
         SelIdxs <- SelectedIdx()
 
-        HTML(paste(c("<b>Selected genesets:</b>", unlist(lapply(RomaData$ModuleSummary[SelIdxs], "[[", "ModuleName"))), collapse = '   '))
+        RetDF <- data.frame(Names = unlist(lapply(RomaData$ModuleSummary[SelIdxs], "[[", "ModuleName"), use.names = FALSE))
+
+        return(RetDF)
       }
 
     })

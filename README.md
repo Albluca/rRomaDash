@@ -13,7 +13,15 @@ installed via `devtools`
     if(!requireNamespace("devtools")){
       install.packages("devtools")
     }
-    devtools::install_github("Albluca/rROMA")
+    devtools::install_github("Albluca/rRoma")
+
+After installing `rRoma`, it is possible to install `rROMADash` by
+typing
+
+    if(!requireNamespace("devtools")){
+      install.packages("devtools")
+    }
+    devtools::install_github("Albluca/rRomaDash")
 
 The other packages required by the interface will be installed
 automatically by R if not already available on the system.
