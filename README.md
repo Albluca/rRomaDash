@@ -7,7 +7,7 @@ the [rRoma R package](https://github.com/Albluca/rRoma).
 Intalling rROMADash
 ===================
 
-The rROMADash package relies on the `rRoma` package, which is need to e
+The rROMADash package relies on the `rRoma` package, which needs to be
 installed via `devtools`
 
     if(!requireNamespace("devtools")){
@@ -15,14 +15,13 @@ installed via `devtools`
     }
     devtools::install_github("Albluca/rROMA")
 
-The other package needed to use the interface will be installed
-automatically by R is not already available in the system.
+The other packages required by the interface will be installed
+automatically by R if not already available on the system.
 
 Using rROMADash
 ===============
 
-To launch the interface it is sufficient to type to following lines of
-code:
+To launch the interface it is sufficient to type to following command:
 
     library(rRomaDash)
     rRomaDash()
@@ -34,4 +33,4 @@ by typing
     rRomaDash(Interactive = TRUE)
 
 Note that the interactivity is still experimental and may not work
-properly under certain system conditions.
+properly on certain systems.

@@ -107,8 +107,8 @@ rRomaDash <- function(RomaData = NULL,
   if(R.utils::isPackageLoaded("plotly")){
     print("Detaching plotly.")
     detach("package:plotly", unload=TRUE)
-    library(plotly)
   }
+  library(plotly)
 
 
   # if(Interactive){
@@ -142,13 +142,16 @@ rRomaDash <- function(RomaData = NULL,
                          "ACSN Cell Cycle Map (v1.1)" = "ACSN_CellCycle",
                          "ACSN DNA Repair Map (v1.1)" = "ACSN_DNARepair",
                          "ACSN EMT Map (v1.1)" = "ACSN_EMT",
-                         "ACSN Survival Map (v1.1)" = "ACSN_Survival")
+                         "ACSN Survival Map (v1.1)" = "ACSN_Survival",
+                         "InfoSigMap Conseved" = "InfoSig_Conserved",
+                         "InfoSigMap" = "InfoSig_Informative")
 
   MapList <- list("Apoptosis and mitochondria metabolism map" = "https://acsn.curie.fr/navicell/maps/apoptosis/master/index.php",
                   "Cell survival map" = "https://acsn.curie.fr/navicell/maps/survival/master/index.php",
                   "EMT and cell motility map" = "https://acsn.curie.fr/navicell/maps/emtcellmotility/master/index.php",
                   "Cell cycle map" = "https://acsn.curie.fr/navicell/maps/cellcycle/master/index.php",
-                  "DNA repair map" = "https://acsn.curie.fr/navicell/maps/dnarepair/master/index.php")
+                  "DNA repair map" = "https://acsn.curie.fr/navicell/maps/dnarepair/master/index.php",
+                  "InfoSigMap" = "https://navicell.curie.fr/navicell/newtest/maps/infosigmap/master/index.php")
 
   # define ui ---------------------------------------------------------
 
@@ -498,11 +501,11 @@ rRomaDash <- function(RomaData = NULL,
 
                                                  fluidRow(
                                                    column(12,
-                                                    htmlOutput("SelGSTable")
+                                                          selectInput("mapurl", "Map to use:", MapList, width = "80%")
                                                    ),
                                                    hr(),
                                                    column(12,
-                                                          selectInput("mapurl", "Map to use:", MapList, width = "80%")
+                                                          htmlOutput("SelGSTable")
                                                    ),
                                                    hr(),
                                                    column(12,
@@ -514,7 +517,7 @@ rRomaDash <- function(RomaData = NULL,
                                                  fluidRow(
                                                    column(6,
                                                           selectInput("selgroup", "Groups:", as.list(unique(Groups))),
-                                                          actionButton("selByGroup", "Select samples"),
+                                                          actionButton("selByGroup", "Select group"),
                                                           actionButton("selNone", "Clear selection")
                                                    ),
                                                    column(6,
@@ -1809,7 +1812,7 @@ rRomaDash <- function(RomaData = NULL,
       } else {
         SelIdxs <- SelectedIdx()
 
-        HTML(paste(c("<b>Selected genesets:</b>", unlist(lapply(RomaData$ModuleSummary[SelIdxs], "[[", "ModuleName"))), collapse = '<br/>'))
+        HTML(paste(c("<b>Selected genesets:</b>", unlist(lapply(RomaData$ModuleSummary[SelIdxs], "[[", "ModuleName"))), collapse = '   '))
       }
 
     })
@@ -1836,7 +1839,7 @@ rRomaDash <- function(RomaData = NULL,
       SelIdxs <- SelectedIdx()
       RomaData <- GetData()$RomaData
 
-      if(!is.null(input$selSamples) & !is.null(RomaData)){
+      if(!is.null(input$selSamples) & !is.null(RomaData) & !is.null(SelIdxs)){
         RetData <- PlotOnACSN(
           RomaData = RomaData, SampleName = input$selSamples, AggScoreFun = input$scoreaggfun,
           MapURL = input$mapurl, Selected = SelIdxs, FilterByWei = as.numeric(input$ACSNWeiFil),
@@ -1896,7 +1899,7 @@ rRomaDash <- function(RomaData = NULL,
         if(!is.null(Data$GeneMult)){
           p <- ggplot2::ggplot(data = data.frame(Data$GeneMult),
                                mapping = ggplot2::aes(x = Freq)) +
-            ggplot2::geom_histogram(binwidth = 1) +
+            ggplot2::geom_histogram(binwidth = .9) +
             ggplot2::labs(y = "Frequency", x = "Gene multiplicity") + ggplot2::scale_y_log10()
 
           print(p)
@@ -1966,7 +1969,8 @@ rRomaDash <- function(RomaData = NULL,
 
       Groups <- GetData()$Groups
 
-      updateCheckboxGroupInput(session, "selSamples", selected = names(Groups[Groups == input$selgroup]))
+      updateCheckboxGroupInput(session, "selSamples", selected = unique(c(names(Groups[Groups == input$selgroup]),
+                                                                          input$selSamples)))
 
     }, ignoreNULL = FALSE, ignoreInit = TRUE)
 

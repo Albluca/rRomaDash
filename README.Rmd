@@ -17,7 +17,7 @@ This package provides a shiny interface that can be used to complement the [rRom
 
 # Intalling rROMADash
 
-The rROMADash package relies on the `rRoma` package, which is need to e installed via `devtools`
+The rROMADash package relies on the `rRoma` package, which needs to be installed via `devtools`
 
 ```{r, eval=FALSE}
 if(!requireNamespace("devtools")){
@@ -26,11 +26,11 @@ if(!requireNamespace("devtools")){
 devtools::install_github("Albluca/rROMA")
 ```
 
-The other package needed to use the interface will be installed automatically by R is not already available in the system.
+The other packages required by the interface will be installed automatically by R if not already available on the system.
 
 # Using rROMADash
 
-To launch the interface it is sufficient to type to following lines of code:
+To launch the interface it is sufficient to type to following command:
 
 ```{r, eval=FALSE}
 library(rRomaDash)
@@ -44,4 +44,5 @@ library(rRomaDash)
 rRomaDash(Interactive = TRUE)
 ```
 
-Note that the interactivity is still experimental and may not work properly under certain system conditions.
+Note that the interactivity is still experimental and may not work properly on certain systems.
+
