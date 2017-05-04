@@ -19,5 +19,6 @@ Imports:
     Rtsne,
     ggplot2,
     R.utils,
-    ggsignif
+    ggsignif,
+    colorRamps
 RoxygenNote: 6.0.1
