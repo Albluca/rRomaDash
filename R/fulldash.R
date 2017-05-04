@@ -104,14 +104,17 @@ rRomaDash <- function(RomaData = NULL,
 
    # preprocess data ---------------------------------------------------------
 
-  library(plotly)
+  if(R.utils::isPackageLoaded("plotly")){
+    print("Detaching plotly.")
+    detach("package:plotly", unload=TRUE)
+    library(plotly)
+  }
+
+
   # if(Interactive){
   #   print("Using plotly. This can cause problems on some systems. Try setting 'Interactive = FALSE' if errors are encountered")
   # } else {
-  #   if(R.utils::isPackageLoaded("plotly")){
-  #     print("Detaching plotly.")
-  #     detach("package:plotly", unload=TRUE)
-  #   }
+  #
   # }
 
   ROMADataLoaded <- FALSE
@@ -144,7 +147,7 @@ rRomaDash <- function(RomaData = NULL,
   MapList <- list("Apoptosis and mitochondria metabolism map" = "https://acsn.curie.fr/navicell/maps/apoptosis/master/index.php",
                   "Cell survival map" = "https://acsn.curie.fr/navicell/maps/survival/master/index.php",
                   "EMT and cell motility map" = "https://acsn.curie.fr/navicell/maps/emtcellmotility/master/index.php",
-                  "Cell cycle map" = "https://acsn.curie.fr/navicell/maps/apoptosis/cellcycle/index.php",
+                  "Cell cycle map" = "https://acsn.curie.fr/navicell/maps/cellcycle/master/index.php",
                   "DNA repair map" = "https://acsn.curie.fr/navicell/maps/dnarepair/master/index.php")
 
   # define ui ---------------------------------------------------------
@@ -511,7 +514,8 @@ rRomaDash <- function(RomaData = NULL,
                                                  fluidRow(
                                                    column(6,
                                                           selectInput("selgroup", "Groups:", as.list(unique(Groups))),
-                                                          actionButton("selByGroup", "Select samples")
+                                                          actionButton("selByGroup", "Select samples"),
+                                                          actionButton("selNone", "Clear selection")
                                                    ),
                                                    column(6,
                                                           selectInput("projtype", "Display mode:",
@@ -1837,7 +1841,7 @@ rRomaDash <- function(RomaData = NULL,
           RomaData = RomaData, SampleName = input$selSamples, AggScoreFun = input$scoreaggfun,
           MapURL = input$mapurl, Selected = SelIdxs, FilterByWei = as.numeric(input$ACSNWeiFil),
           AggGeneFun = input$geneaggfun, DispMode = input$projtype, DefDispVal = 0,
-          PlotInfo = FALSE, ReturnInfo = TRUE)
+          PlotInfo = FALSE, ReturnInfo = TRUE, LocalRange = FALSE)
       } else {
         RetData  <- NULL
       }
@@ -1966,7 +1970,19 @@ rRomaDash <- function(RomaData = NULL,
 
     }, ignoreNULL = FALSE, ignoreInit = TRUE)
 
+
+    # Clear selection (ACSN) ---------------------------------------------------------
+
+    observeEvent(input$selNone, {
+
+      updateCheckboxGroupInput(session, "selSamples", selected = "")
+
+    }, ignoreNULL = FALSE, ignoreInit = TRUE)
+
   }
+
+
+
 
 
 

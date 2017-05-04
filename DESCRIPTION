@@ -12,9 +12,11 @@ LazyData: true
 Depends:
     R (>= 3.0),
     rRoma,
-    shiny,
-    plotly,
-    Rtsne
+    shiny
 Imports:
-    readr
+    readr,
+    plotly,
+    Rtsne,
+    ggplot2,
+    R.utils
 RoxygenNote: 6.0.1
