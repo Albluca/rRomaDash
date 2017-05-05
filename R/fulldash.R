@@ -153,6 +153,9 @@ rRomaDash <- function(RomaData = NULL,
                   "DNA repair map" = "https://acsn.curie.fr/navicell/maps/dnarepair/master/index.php",
                   "InfoSigMap" = "https://navicell.curie.fr/navicell/newtest/maps/infosigmap/master/index.php")
 
+  nProcList <- as.list(as.character(1:32))
+  names(nProcList) <- as.character(1:32)
+
   # define ui ---------------------------------------------------------
 
   ui <- navbarPage("rRoma dashboard",
@@ -265,10 +268,7 @@ rRomaDash <- function(RomaData = NULL,
                                                        selectInput("par_UseParallel", "UseParallel",
                                                                       list("TRUE" = "TRUE", "FALSE" = "FALSE"), selected = "TRUE"),
                                                        conditionalPanel(condition="input.par_UseParallel == 'TRUE'",
-                                                         selectInput("par_nCores", "nCores",
-                                                                     list("1" = "1", "2" = "2", "3" = "3", "4" = "4",
-                                                                          "4" = "4", "5" = "5", "6" = "6", "7" = "7",
-                                                                          "8" = "8", "9" = "9", "10" = "10", "11" = "11"),
+                                                         selectInput("par_nCores", "nCores", nProcList,
                                                                      selected = as.character(parallel::detectCores() - 1)),
                                                          selectInput("par_ClusType", "ClusType",
                                                                      list("PSOCK", "FORK"), selected = "PSOCK")
