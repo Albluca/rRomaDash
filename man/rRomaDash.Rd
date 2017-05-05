@@ -2,14 +2,14 @@
 % Please edit documentation in R/fulldash.R
 \name{rRomaDash}
 \alias{rRomaDash}
-\title{Title}
+\title{Launch the rRoma dashboard}
 \usage{
 rRomaDash(RomaData = NULL, ExpMat = NULL, Groups = NULL,
   Interactive = FALSE)
 }
 \arguments{
-\item{Interactive}{}
+\item{Interactive}{boolean, scalar. Should interactivity (via Plotly) be enabled?}
 }
 \description{
-Title
+Launch the rRoma dashboard
 }

@@ -1,5 +1,3 @@
-
-
 #' Title
 #'
 #' @param RomaData
@@ -83,12 +81,12 @@ Initialize <- function(RomaData, ExpMat, Groups){
 
 
 
-#' Title
+#' Launch the rRoma dashboard
 #'
 #' @param RomaData
 #' @param ExpMat
 #' @param Groups
-#' @param Interactive
+#' @param Interactive boolean, scalar. Should interactivity (via Plotly) be enabled?
 #'
 #' @return
 #' @export
