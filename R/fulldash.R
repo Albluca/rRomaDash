@@ -1946,10 +1946,19 @@ rRomaDash <- function(RomaData = NULL,
                              mapping = ggplot2::aes(x = x, y = y)) +
           ggplot2::geom_boxplot(mapping = ggplot2::aes(color = "Data")) +
           ggplot2::labs(y = "Variance of gene weight") + ggplot2::scale_y_log10() +
-          ggplot2::geom_point(data = data.frame(x = rep(1, length(which(Data$GeneOut))),
+          ggplot2::scale_color_manual("", values = c(Data="black", Outliers="red")) +
+          ggplot2::theme(axis.title.x=ggplot2::element_blank(),
+                         axis.text.x=ggplot2::element_blank(),
+                         axis.ticks.x=ggplot2::element_blank())
+
+        if(sum(Data$GeneOut) > 1){
+
+          p <- p + ggplot2::geom_point(data = data.frame(x = rep(1, length(which(Data$GeneOut))),
                                                 y = Data$GenesVar[names(which(Data$GeneOut))]),
                               mapping = ggplot2::aes(x = x, y = y, color="Outliers"), size = 3,
                               inherit.aes = FALSE)
+
+        }
 
         print(p)
       }
@@ -1966,8 +1975,8 @@ rRomaDash <- function(RomaData = NULL,
         if(!is.null(Data$GeneMult)){
           p <- ggplot2::ggplot(data = data.frame(Data$GeneMult),
                                mapping = ggplot2::aes(x = Freq)) +
-            ggplot2::geom_histogram(binwidth = .9) +
-            ggplot2::labs(y = "Frequency", x = "Gene multiplicity") + ggplot2::scale_y_log10()
+            ggplot2::geom_histogram(binwidth = 1) +
+            ggplot2::labs(y = "Frequency", x = "Gene multiplicity")
 
           print(p)
         }
@@ -1988,7 +1997,10 @@ rRomaDash <- function(RomaData = NULL,
                                                  x = rep(1, length(Data$ScoreDist))),
                                mapping = ggplot2::aes(x = x, y = data)) +
             ggplot2::geom_boxplot() +
-            ggplot2::labs(y = "Gene score (Module)", x = "")
+            ggplot2::labs(y = "Gene score (Module)", x = "") +
+            ggplot2::theme(axis.title.x=ggplot2::element_blank(),
+                           axis.text.x=ggplot2::element_blank(),
+                           axis.ticks.x=ggplot2::element_blank())
 
           print(p)
         }
@@ -1998,7 +2010,10 @@ rRomaDash <- function(RomaData = NULL,
                                                  x = rep(1, length(Data$WeiDist))),
                                mapping = ggplot2::aes(x = x, y = data)) +
             ggplot2::geom_boxplot() +
-            ggplot2::labs(y = "Gene score (Weight)", x = "")
+            ggplot2::labs(y = "Gene score (Weight)", x = "") +
+            ggplot2::theme(axis.title.x=ggplot2::element_blank(),
+                           axis.text.x=ggplot2::element_blank(),
+                           axis.ticks.x=ggplot2::element_blank())
 
           print(p)
         }
@@ -2021,7 +2036,10 @@ rRomaDash <- function(RomaData = NULL,
                                mapping = ggplot2::aes(x = x, y = y)) +
             ggplot2::geom_boxplot() +
             ggplot2::labs(y = "Gene score variance (per gene with multiplicity > 1)", x = "") +
-            ggplot2::scale_y_log10()
+            ggplot2::scale_y_log10() +
+            ggplot2::theme(axis.title.x=ggplot2::element_blank(),
+                           axis.text.x=ggplot2::element_blank(),
+                           axis.ticks.x=ggplot2::element_blank())
 
           print(p)
         }
