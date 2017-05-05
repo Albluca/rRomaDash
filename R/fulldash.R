@@ -301,7 +301,7 @@ rRomaDash <- function(RomaData = NULL,
                                                                    list("L1OutVarPerc" = "L1OutVarPerc",
                                                                         "L1OutVarDC" = "L1OutVarDC",
                                                                         "L1OutExpOut" = "L1OutExpOut",
-                                                                        "L1OutSdMean" = "L1OutSdMean"), selected = "L1OutVarPerc"),
+                                                                        "L1OutSdMean" = "L1OutSdMean"), selected = "L1OutExpOut"),
                                                        textInput("par_OutGeneNumber", "OutGeneNumber", "5"),
                                                        textInput("par_OutGeneSpace", "OutGeneSpace", "NULL")
                                                        ),
