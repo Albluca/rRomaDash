@@ -134,22 +134,27 @@ rRomaDash <- function(RomaData = NULL,
 
   tSNEProj <- PCAProj
 
-  InternalGMTList <- list("Molecular signature DB (v6.0)" = "MsigDB",
-                         "ACSN Globlal Map (v1.1)" = "ACSN_Global",
-                         "ACSN Apoptosis Map (v1.1)" = "ACSN_Apoptosis",
-                         "ACSN Cell Cycle Map (v1.1)" = "ACSN_CellCycle",
-                         "ACSN DNA Repair Map (v1.1)" = "ACSN_DNARepair",
-                         "ACSN EMT Map (v1.1)" = "ACSN_EMT",
-                         "ACSN Survival Map (v1.1)" = "ACSN_Survival",
-                         "InfoSigMap Conseved" = "InfoSig_Conserved",
-                         "InfoSigMap" = "InfoSig_Informative")
+  InternalGMTList <- list(
+    "Molecular signature DB (v6.0)" = "MsigDB",
+    "ACSN Globlal Map (v1.1)" = "ACSN_Global",
+    "ACSN Apoptosis Map (v1.1)" = "ACSN_Apoptosis",
+    "ACSN Cell Cycle Map (v1.1)" = "ACSN_CellCycle",
+    "ACSN DNA Repair Map (v1.1)" = "ACSN_DNARepair",
+    "ACSN EMT Map (v1.1)" = "ACSN_EMT",
+    "ACSN Survival Map (v1.1)" = "ACSN_Survival",
+    "InfoSigMap Conseved" = "InfoSig_Conserved",
+    "InfoSigMap" = "InfoSig_Informative"
+  )
 
-  MapList <- list("Apoptosis and mitochondria metabolism map" = "https://acsn.curie.fr/navicell/maps/apoptosis/master/index.php",
-                  "Cell survival map" = "https://acsn.curie.fr/navicell/maps/survival/master/index.php",
-                  "EMT and cell motility map" = "https://acsn.curie.fr/navicell/maps/emtcellmotility/master/index.php",
-                  "Cell cycle map" = "https://acsn.curie.fr/navicell/maps/cellcycle/master/index.php",
-                  "DNA repair map" = "https://acsn.curie.fr/navicell/maps/dnarepair/master/index.php",
-                  "InfoSigMap" = "https://navicell.curie.fr/navicell/newtest/maps/infosigmap/master/index.php")
+  MapList <- list(
+    "Atlas of Cancer Signalling Network global map" = "https://acsn.curie.fr/navicell/maps/acsn/master/index.php",
+    "Apoptosis and mitochondria metabolism map" = "https://acsn.curie.fr/navicell/maps/apoptosis/master/index.php",
+    "Cell survival map" = "https://acsn.curie.fr/navicell/maps/survival/master/index.php",
+    "EMT and cell motility map" = "https://acsn.curie.fr/navicell/maps/emtcellmotility/master/index.php",
+    "Cell cycle map" = "https://acsn.curie.fr/navicell/maps/cellcycle/master/index.php",
+    "DNA repair map" = "https://acsn.curie.fr/navicell/maps/dnarepair/master/index.php",
+    "InfoSigMap" = "https://navicell.curie.fr/navicell/newtest/maps/infosigmap/master/index.php"
+  )
 
   nProcList <- as.list(as.character(1:32))
   names(nProcList) <- as.character(1:32)
