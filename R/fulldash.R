@@ -520,7 +520,7 @@ rRomaDash <- function(RomaData = NULL,
                                                  fluidRow(
                                                    headerPanel("Group Selection:"),
                                                    column(6,
-                                                          selectInput("selgroup", "Groups:", as.list(unique(Groups)))
+                                                          selectInput("selgroup", NULL, as.list(unique(Groups)))
                                                    ),
                                                    column(6,
                                                           actionButton("selByGroup", "Select group"),
@@ -533,8 +533,7 @@ rRomaDash <- function(RomaData = NULL,
                                                    column(6,
                                                           selectInput("projtype", "Display mode:",
                                                                       list("Module" = "Module", "Gene" = "Gene")),
-                                                          textInput("ACSNWeiFil", "Filtering threshold:", "20"),
-                                                          actionButton("doACSN", "Plot on ACSN map")
+                                                          textInput("ACSNWeiFil", "Filtering threshold:", "20")
                                                    ),
                                                    column(6,
                                                           selectInput("scoreaggfun", "Score aggregation:",
@@ -542,10 +541,22 @@ rRomaDash <- function(RomaData = NULL,
                                                                            "sd" = "sd", "IQR" = "IQR")),
                                                           selectInput("geneaggfun", "Gene aggregation:",
                                                                       list("mean" = "mean", "median" = "median",
-                                                                           "sd" = "sd", "IQR" = "IQR")),
+                                                                           "sd" = "sd", "IQR" = "IQR"))
+                                                   )
+                                                 ),
+
+                                                 hr(),
+
+                                                 fluidRow(
+                                                   column(6,
+                                                          actionButton("doACSN", "Plot on ACSN map")
+                                                   ),
+                                                   column(6,
                                                           htmlOutput("ACSNStatus")
                                                    )
-                                                 )
+                                                 ),
+
+                                                 hr()
                                                )
 
 
@@ -592,7 +603,7 @@ rRomaDash <- function(RomaData = NULL,
 
                         fluidRow(
                           column(6, wellPanel(
-                              helpText("Uploada previously performed rRoma analysis"),
+                              helpText("Upload a previously performed rRoma analysis"),
                               fileInput("prev.rRoma", "Choose an rRoma file", accept = c(".rds")),
                               actionButton("RDSload", "Load data")
                             )
@@ -1219,12 +1230,52 @@ rRomaDash <- function(RomaData = NULL,
       Sampled.DF$X2 <- factor(as.character(Sampled.DF$X2), levels = c("L1", "L2", "L1/L2", "Exp"))
       Sampled.DF$value <- as.numeric(as.character(Sampled.DF$value))
 
-      p <- ggplot2::ggplot(data = Sampled.DF[Sampled.DF$Org == "Samples", ], ggplot2::aes(y = value, x = X2, color = Org)) +
+      p1 <- ggplot2::ggplot(data = Sampled.DF[Sampled.DF$Org == "Samples" &
+                                               Sampled.DF$X2 %in% c("L1", "L2"), ],
+                           ggplot2::aes(y = value, x = X2, color = Org)) +
         ggplot2::geom_boxplot() + ggplot2::facet_wrap(~X2, scales = "free", ncol = 4) +
-        ggplot2::geom_point(data = Sampled.DF[Sampled.DF$Org == "Data", ],
-                   ggplot2::aes(y = value, x = X2, color = Org), inherit.aes = FALSE, size = 3)
+        ggplot2::scale_color_manual(values = c(Data="red", Samples="black")) +
+        ggplot2::geom_point(data = Sampled.DF[Sampled.DF$Org == "Data" &
+                                                Sampled.DF$X2 %in% c("L1", "L2"), ],
+                   ggplot2::aes(y = value, x = X2, color = Org), inherit.aes = FALSE, size = 3) +
+        ggplot2::labs(x="", y="Explained variance") +
+        ggplot2::guides(color=FALSE) +
+        ggplot2::theme(axis.title.x=ggplot2::element_blank(),
+                       axis.text.x=ggplot2::element_blank(),
+                       axis.ticks.x=ggplot2::element_blank())
 
-        print(p)
+
+        p2 <- ggplot2::ggplot(data = Sampled.DF[Sampled.DF$Org == "Samples" &
+                                                 Sampled.DF$X2 %in% c("L1/L2"), ],
+                             ggplot2::aes(y = value, x = X2, color = Org)) +
+          ggplot2::geom_boxplot() + ggplot2::facet_wrap(~X2, scales = "free", ncol = 4) +
+          ggplot2::scale_color_manual(values = c(Data="red", Samples="black")) +
+          ggplot2::geom_point(data = Sampled.DF[Sampled.DF$Org == "Data" &
+                                                  Sampled.DF$X2 %in% c("L1/L2"), ],
+                              ggplot2::aes(y = value, x = X2, color = Org), inherit.aes = FALSE, size = 3) +
+          ggplot2::labs(x="", y="Ratio") +
+          ggplot2::guides(color=FALSE) +
+          ggplot2::scale_y_log10() +
+          ggplot2::theme(axis.title.x=ggplot2::element_blank(),
+                         axis.text.x=ggplot2::element_blank(),
+                         axis.ticks.x=ggplot2::element_blank())
+
+
+        p3 <- ggplot2::ggplot(data = Sampled.DF[Sampled.DF$Org == "Samples" &
+                                                 Sampled.DF$X2 %in% c("Exp"), ],
+                             ggplot2::aes(y = value, x = X2, color = "Samples")) +
+          ggplot2::geom_boxplot() + ggplot2::facet_wrap(~X2, scales = "free", ncol = 4) +
+          ggplot2::scale_color_manual("", values = c(Data="red", Samples="black")) +
+          ggplot2::geom_point(data = Sampled.DF[Sampled.DF$Org == "Data" &
+                                                  Sampled.DF$X2 %in% c("Exp"), ],
+                              ggplot2::aes(y = value, x = X2, color = Org),
+                              inherit.aes = FALSE, size = 3) +
+          ggplot2::labs(x="", y="Median Expression") +
+          ggplot2::theme(axis.title.x=ggplot2::element_blank(),
+                         axis.text.x=ggplot2::element_blank(),
+                         axis.ticks.x=ggplot2::element_blank())
+
+        gridExtra::grid.arrange(p1, p2, p3, ncol = 3, widths=c(2,1,1.5))
 
     })
 
