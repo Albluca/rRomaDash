@@ -169,7 +169,8 @@ rRomaDash <- function(RomaData = NULL,
                         sidebarPanel(
                           actionButton("doROMA", "Execute rROMA"),
                           hr(),
-                          htmlOutput("ROMAOut")
+                          htmlOutput("ROMAOut"),
+                          htmlOutput("ROMAOut2")
                         ),
 
                         # Show a plot of the generated distribution
@@ -854,6 +855,17 @@ rRomaDash <- function(RomaData = NULL,
       }
 
       return(HTML(paste(str1, str2, sep = '<br/>')))
+
+    })
+
+    output$ROMAOut2 <- renderUI({
+
+      ModuleList <- GetModuleList()
+
+      # Get expression matrix
+      if(!is.null(ModuleList)){
+        return(HTML("Geneset list loaded"))
+      }
 
     })
 
