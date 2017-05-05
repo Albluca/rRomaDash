@@ -21,5 +21,6 @@ Imports:
     ggplot2,
     R.utils,
     ggsignif,
-    colorRamps
+    colorRamps,
+    gridExtra
 RoxygenNote: 6.0.1
