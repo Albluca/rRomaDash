@@ -1827,7 +1827,7 @@ rRomaDash <- function(RomaData = NULL,
           p <- ggplot2::ggplot(data = data.frame(XVal = RomaData$ProjMatrix[as.integer(input$gs_x), ProcessedSamples],
                                                  YVal = RomaData$ProjMatrix[as.integer(input$gs_y), ProcessedSamples],
                                                  Group = Groups[ProcessedSamples]),
-                               ggplot2::aes(x = XVal, y = YVal, shape = Group)) +
+                               ggplot2::aes(x = XVal, y = YVal, color = Group)) +
             ggplot2::labs(x = XLab, y = YLab, shape = "", title = paste("Corr =", signif(CTitle, 5))) +
             ggplot2::geom_point(ggplot2::aes(text = ProcessedSamples))
 
@@ -1842,7 +1842,7 @@ rRomaDash <- function(RomaData = NULL,
           p <- ggplot2::ggplot(data = data.frame(XVal = AggX[,2],
                                                  YVal = AggY[,2],
                                                  Group = AggX[,1]),
-                               ggplot2::aes(x = XVal, y = YVal, shape = Group)) +
+                               ggplot2::aes(x = XVal, y = YVal, color = Group)) +
             ggplot2::labs(x = XLab, y = YLab, shape = "", title = paste("Corr =", signif(CTitle, 5))) +
             ggplot2::geom_point(ggplot2::aes(text = AggX[,1]))
 
@@ -1886,7 +1886,7 @@ rRomaDash <- function(RomaData = NULL,
           p <- ggplot2::ggplot(data = data.frame(XVal = RomaData$ProjMatrix[as.integer(input$gs_x), ProcessedSamples],
                                                  YVal = RomaData$ProjMatrix[as.integer(input$gs_y), ProcessedSamples],
                                                  Group = Groups[ProcessedSamples]),
-                               ggplot2::aes(x = XVal, y = YVal, shape = Group)) +
+                               ggplot2::aes(x = XVal, y = YVal, color = Group)) +
             ggplot2::labs(x = XLab, y = YLab, shape = "", title = paste("Corr =", signif(CTitle, 5))) +
             ggplot2::geom_point()
 
@@ -1902,7 +1902,7 @@ rRomaDash <- function(RomaData = NULL,
            p <- ggplot2::ggplot(data = data.frame(XVal = AggX[,2],
                                                  YVal = AggY[,2],
                                                  Group = AggX[,1]),
-                               ggplot2::aes(x = XVal, y = YVal, shape = Group)) +
+                               ggplot2::aes(x = XVal, y = YVal, color = Group)) +
             ggplot2::labs(x = XLab, y = YLab, shape = "", title = paste("Corr =", signif(CTitle, 5))) +
             ggplot2::geom_point()
 

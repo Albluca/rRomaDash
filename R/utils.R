@@ -14,6 +14,12 @@ SubSet_rRomaRDS <- function(SourceFile, TargetFile, KeyWord) {
 
   Selected <- grep(pattern = KeyWord, x = rownames(SourceRDS$RomaData$ModuleMatrix), ignore.case = TRUE)
 
+  if(length(Selected) == 0){
+    print("No geneset found")
+  }
+
+  print(paste(length(Selected), "genesets found"))
+
   TargetRoma <- SourceRDS$RomaData
 
   TargetRoma$ModuleMatrix <- TargetRoma$ModuleMatrix[Selected, ]
@@ -26,6 +32,6 @@ SubSet_rRomaRDS <- function(SourceFile, TargetFile, KeyWord) {
   TargetRDS <- SourceRDS
   TargetRDS$RomaData <- TargetRoma
 
-  saveRDS(TargetFile)
+  saveRDS(TargetRDS, TargetFile)
 
 }
