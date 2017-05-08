@@ -227,7 +227,8 @@ rRomaDash <- function(RomaData = NULL,
 
                                          column(6,
                                                 textInput("msigkw", "Keywords", ""),
-                                                checkboxInput("msigkwall", "search all keywords", FALSE)
+                                                checkboxInput("msigkwall", "search all keywords", FALSE),
+                                                checkboxInput("loadwei", "load weights", FALSE)
                                          ),
 
                                          column(12,
@@ -633,7 +634,7 @@ rRomaDash <- function(RomaData = NULL,
 
   server <- function(input, output, session) {
 
-    options(shiny.maxRequestSize=250*1024^2)
+    options(shiny.maxRequestSize=1000*1024^2)
 
     # Load GMT file ---------------------------------------------------------
 
@@ -655,6 +656,13 @@ rRomaDash <- function(RomaData = NULL,
         LoadedData <- ReadGMTFile(FileLocation = inFile$datapath,
                                   SearchString = KWStrings,
                                   Mode = ifelse(input$msigkwall, "ALL", "ANY"))
+
+        if(!input$loadwei){
+          LoadedData <- lapply(LoadedData, function(GS) {
+            GS$Weigths[!is.na(GS$Weigths)] <- NA
+            return(GS)
+          })
+        }
 
         return(LoadedData)
       }
@@ -681,10 +689,18 @@ rRomaDash <- function(RomaData = NULL,
           KWStrings <- unlist(strsplit(trimws(input$msigkw), split = " ", fixed = TRUE))
         }
 
-        return(SelectFromInternalDB(SearchString = KWStrings,
-                                    Mode = ifelse(input$msigkwall, "ALL", "ANY"),
-                                    BDName = input$gmtlist, Version = NULL)
-        )
+        FoundGS <- SelectFromInternalDB(SearchString = KWStrings,
+                                        Mode = ifelse(input$msigkwall, "ALL", "ANY"),
+                                        BDName = input$gmtlist, Version = NULL)
+
+        if(!input$loadwei){
+          FoundGS <- lapply(FoundGS, function(GS) {
+            GS$Weigths[!is.na(GS$Weigths)] <- NA
+            return(GS)
+          })
+        }
+
+        return(FoundGS)
 
       }
 
@@ -697,7 +713,8 @@ rRomaDash <- function(RomaData = NULL,
       ModuleList <- GetModuleList()
 
       ModuleDF <- data.frame(Names = unlist(lapply(ModuleList, "[[", "Name")),
-                             Genes = unlist(lapply(lapply(ModuleList, "[[", "Genes"), length)))
+                             Genes = unlist(lapply(lapply(ModuleList, "[[", "Genes"), length)),
+                             Weighted = unlist(lapply(lapply(ModuleList, "[[", "Weigths"), function(x){sum(!is.na(x))})))
 
       ModuleDF
 
@@ -895,8 +912,8 @@ rRomaDash <- function(RomaData = NULL,
         return(NULL)
       }
 
-      ModuleDF <- data.frame(Names = unlist(lapply(RomaData$ModuleSummary, "[[", "ModuleName")),
-                             Genes = unlist(lapply(lapply(RomaData$ModuleSummary, "[[", "UsedGenes"), length)))
+      ModuleDF <- data.frame(Names = unlist(lapply(RomaData$ModuleSummary, "[[", "Name")),
+                             Genes = unlist(lapply(lapply(RomaData$ModuleSummary, "[[", "Genes"), length)))
 
       ModuleDF[order(ModuleDF$Names),]
 
@@ -953,6 +970,7 @@ rRomaDash <- function(RomaData = NULL,
 
       content = function(con) {
         rRomaDashData <- list(RomaData = GetData()$RomaData,
+                              ModuleList = GetModuleList(),
                               ExpMat = GetData()$ExpMat,
                               Groups = GetData()$Groups)
         saveRDS(rRomaDashData, con)
@@ -1238,7 +1256,7 @@ rRomaDash <- function(RomaData = NULL,
       p1 <- ggplot2::ggplot(data = Sampled.DF[Sampled.DF$Org == "Samples" &
                                                Sampled.DF$X2 %in% c("L1", "L2"), ],
                            ggplot2::aes(y = value, x = X2, color = Org)) +
-        ggplot2::geom_boxplot() + ggplot2::facet_wrap(~X2, scales = "free", ncol = 4) +
+        ggplot2::geom_boxplot() + ggplot2::facet_wrap(~X2, scales = "free_x", ncol = 4) +
         ggplot2::scale_color_manual(values = c(Data="red", Samples="black")) +
         ggplot2::geom_point(data = Sampled.DF[Sampled.DF$Org == "Data" &
                                                 Sampled.DF$X2 %in% c("L1", "L2"), ],
