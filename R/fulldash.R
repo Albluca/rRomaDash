@@ -132,6 +132,8 @@ rRomaDash <- function(RomaData = NULL,
   PCAProj <- InitReturn$PCAProj
   ProcessedSamples <- InitReturn$ProcessedSamples
 
+  GeneList <- list()
+
   tSNEProj <- PCAProj
 
   InternalGMTList <- list(
@@ -375,6 +377,14 @@ rRomaDash <- function(RomaData = NULL,
                           ),
 
                           conditionalPanel(
+                            condition="input.ResTabs == 'Modules' || input.ResTabs == 'Gene contribution'",
+                            selectInput("gs", "GeneSet:",
+                                        GSList),
+                            htmlOutput("info"),
+                            hr()
+                          ),
+
+                          conditionalPanel(
                             condition="input.ResTabs == 'Heatmap' || input.ResTabs == 'Correlation'",
                             selectInput("htype", "Heatmap type:", SelList)
                           ),
@@ -386,11 +396,19 @@ rRomaDash <- function(RomaData = NULL,
 
 
                           conditionalPanel(
-                            condition="input.ResTabs == 'Correlation'",
+                            condition="input.ResTabs == 'Correlation' || input.ResTabs == 'Gene contribution'",
                             selectInput("cortype", "Correlation method:",
                                         list("Pearson" = "pearson",
                                              "Kendall" = "kendall",
                                              "Spearman" = "spearman"))
+                          ),
+
+                          conditionalPanel(
+                            condition="input.ResTabs == 'Gene contribution'",
+                            selectInput("corlelvel", "Confidence level:",
+                                        list(".95", ".99", ".999", ".9999")),
+                            actionButton("doCorr", "Compute correlations"),
+                            hr()
                           ),
 
                           conditionalPanel(
@@ -429,12 +447,7 @@ rRomaDash <- function(RomaData = NULL,
                                       max = -1.3,  min = -5,  value = -1.3, step = .1),
                           hr(),
 
-                          conditionalPanel(
-                            condition="input.ResTabs == 'Modules'",
-                            selectInput("gs", "GeneSet:",
-                                        GSList),
-                            htmlOutput("info")
-                          ),
+
 
                           conditionalPanel(
                             condition="input.ResTabs == 'Heatmap'",
@@ -486,7 +499,17 @@ rRomaDash <- function(RomaData = NULL,
                                                ),
 
                                       # SubTab 3 ---------------------------------------------------------
-                                      tabPanel("Correlation", id = "tab3",
+                                      tabPanel("Gene contribution", id = "tab3",
+                                               selectInput("contribType", "Contribution mode:",
+                                                           list("Positive", "Negative")),
+                                               plotOutput("CorrCI"),
+                                               # dataTableOutput("CorrTable"),
+                                               selectInput("availGenes", "", GeneList),
+                                               plotOutput("ExpProj")
+                                      ),
+
+                                      # SubTab 4 ---------------------------------------------------------
+                                      tabPanel("Correlation", id = "tab4",
                                                if(Interactive){
                                                  tabPanel("Plot",
                                                           plotOutput("CorHmPlot", height = "800px"),
@@ -501,8 +524,8 @@ rRomaDash <- function(RomaData = NULL,
 
                                                ),
 
-                                      # SubTab 4 ---------------------------------------------------------
-                                      tabPanel("ACSN (Selection)", id = "tab4",
+                                      # SubTab 5 ---------------------------------------------------------
+                                      tabPanel("ACSN (Selection)", id = "tab5",
                                                fluidPage(
 
                                                  fluidRow(
@@ -568,6 +591,7 @@ rRomaDash <- function(RomaData = NULL,
 
                                       ),
 
+                                      # SubTab 6 ---------------------------------------------------------
                                       tabPanel("ACSN (Info)", id = "tab5",
                                                fluidPage(
 
@@ -912,8 +936,8 @@ rRomaDash <- function(RomaData = NULL,
         return(NULL)
       }
 
-      ModuleDF <- data.frame(Names = unlist(lapply(RomaData$ModuleSummary, "[[", "Name")),
-                             Genes = unlist(lapply(lapply(RomaData$ModuleSummary, "[[", "Genes"), length)))
+      ModuleDF <- data.frame(Names = unlist(lapply(RomaData$ModuleSummary, "[[", "ModuleName")),
+                             Genes = unlist(lapply(lapply(RomaData$ModuleSummary, "[[", "UsedGenes"), length)))
 
       ModuleDF[order(ModuleDF$Names),]
 
@@ -2091,7 +2115,130 @@ rRomaDash <- function(RomaData = NULL,
 
     }, ignoreNULL = FALSE, ignoreInit = TRUE)
 
+
+    # Compute Correlations (Gene contribution) ---------------------------------------------------------
+
+    GetCorrs <- eventReactive(input$doCorr, {
+
+      ExpMat <- GetData()$ExpMat
+      RomaData <- GetData()$RomaData
+      ModuleID <- SelectedGS()
+
+      CorInfo <- GetCorrelations(RomaData = RomaData, Selected = ModuleID, MatData = ExpMat,
+                                 Methods = input$cortype, ConfLevel = as.numeric(input$corlelvel))
+
+      return(list(CorInfo = CorInfo, Method = input$cortype, ModuleID = ModuleID))
+
+    }, ignoreInit = TRUE)
+
+    output$CorrCI <- renderPlot({
+
+      AllGenesCorr <- GetCorrs()$CorInfo$Genes
+
+      if(GetCorrs()$Method != input$cortype | GetCorrs()$ModuleID != SelectedGS()){
+        updateSelectInput(session, "availGenes", choices = list())
+        return(NULL)
+      }
+
+      # Filter genes
+
+      AllGenesCorr <- AllGenesCorr[as.numeric(AllGenesCorr[,"p.val"]) <= (1 - as.numeric(input$corlelvel)), ]
+
+      # Get direction
+
+      SelGenes <- NULL
+
+      if(input$contribType == "Positive"){
+        SelGenes <- which(as.numeric(AllGenesCorr[,"cor"]) > 0)
+      }
+
+      if(input$contribType == "Negative"){
+        SelGenes <- which(as.numeric(AllGenesCorr[,"cor"]) < 0)
+      }
+
+      GeneNames <- AllGenesCorr[SelGenes, "gene"]
+      GeneLabels <- paste(GeneNames, signif(as.numeric(AllGenesCorr[SelGenes, "cor"]), 4),
+                          sep = ' | cor = ')
+
+      RetList <- as.list(GeneNames)
+      names(RetList) <- GeneLabels
+
+      updateSelectInput(session, "availGenes",
+                        choices = RetList[order(as.numeric(AllGenesCorr[SelGenes, "cor"]))])
+
+      if(length(SelGenes) == 0){
+        return(NULL)
+      }
+
+      AllGenesCorr.DF <- data.frame(AllGenesCorr[SelGenes,])
+      AllGenesCorr.DF$cor <- as.numeric(as.character(AllGenesCorr.DF$cor))
+      AllGenesCorr.DF$p.val <- as.numeric(as.character(AllGenesCorr.DF$p.val))
+      AllGenesCorr.DF$gene <- factor(as.character(AllGenesCorr.DF$gene),
+                                     levels = as.character(AllGenesCorr.DF$gene)[order(AllGenesCorr.DF$cor)])
+
+      if(input$cortype == "pearson"){
+        AllGenesCorr.DF$ci.low <- as.numeric(as.character(AllGenesCorr.DF$ci.low))
+        AllGenesCorr.DF$ci.high <- as.numeric(as.character(AllGenesCorr.DF$ci.high))
+
+        p <- ggplot2::ggplot(data = AllGenesCorr.DF,
+                             ggplot2::aes(x = gene, y = cor, ymin = ci.low, ymax = ci.high)) +
+          ggplot2::geom_pointrange() + ggplot2::geom_point() + ggplot2::coord_flip() +
+          ggplot2::labs(y = "Correlation")
+
+      } else {
+
+        p <- ggplot2::ggplot(data = AllGenesCorr.DF,
+                             ggplot2::aes(x = gene, y = cor)) +
+          ggplot2::geom_point() + ggplot2::coord_flip() +
+          ggplot2::labs(y = "Correlation")
+
+      }
+
+
+      if(input$contribType == "Positive"){
+        p <- p + ggplot2::scale_y_continuous(limits = c(0, 1))
+      }
+
+      if(input$contribType == "Negative"){
+        p <- p + ggplot2::scale_y_continuous(limits = c(-1, 0))
+      }
+
+      print(p)
+
+    })
+
+
+    output$ExpProj <- renderPlot({
+
+      if(input$availGenes != ""){
+
+        GeneExp <- GetData()$ExpMat[input$availGenes, ]
+        ModScore <- GetData()$RomaData$ProjMatrix[SelectedGS(),]
+
+        SampleNames <- intersect(names(GeneExp), names(ModScore))
+
+        NewDF <- data.frame(Samples = SampleNames,
+                            Expression = GeneExp[SampleNames],
+                            Score = ModScore[SampleNames],
+                            Groups = GetData()$Groups)
+
+        p <- ggplot2::ggplot(data = NewDF, ggplot2::aes(x = Score, y = Expression)) +
+          ggplot2::geom_smooth() +
+          ggplot2::geom_point(mapping = ggplot2::aes(color = Groups)) +
+          ggplot2::labs(x = "Module score", y = "Gene expression")
+
+        print(p)
+      }
+
+
+    })
+
+
+
   }
+
+
+
 
 
 
