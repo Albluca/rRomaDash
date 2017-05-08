@@ -8,7 +8,7 @@
 #' @export
 #'
 #' @examples
-SubSetRoma <- function(SourceFile, TargetFile, KeyWord) {
+SubSet_rRomaRDS <- function(SourceFile, TargetFile, KeyWord) {
 
   SourceRDS <- readRDS(SourceFile)
 
