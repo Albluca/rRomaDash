@@ -31,7 +31,7 @@ Initialize <- function(RomaData, ExpMat, Groups){
       AddInfo <- NULL
     }
     SelList <- list("By sample" = "sample", "By group" = "group")
-    SelListAF <- list("Mean" = "mean", "Median" = "median", "Std. dev." = "sd", "IQR" = "IQR")
+    SelListAF <- list("Mean" = "mean", "Median" = "median", "Std. dev." = "sd", "IQR" = "IQR", "mad" = "mad")
 
   } else {
 
@@ -567,10 +567,10 @@ rRomaDash <- function(RomaData = NULL,
                                                    column(6,
                                                           selectInput("scoreaggfun", "Score aggregation:",
                                                                       list("mean" = "mean", "median" = "median",
-                                                                           "sd" = "sd", "IQR" = "IQR")),
+                                                                           "sd" = "sd", "IQR" = "IQR", "mad" = "mad")),
                                                           selectInput("geneaggfun", "Gene aggregation:",
                                                                       list("mean" = "mean", "median" = "median",
-                                                                           "sd" = "sd", "IQR" = "IQR"))
+                                                                           "sd" = "sd", "IQR" = "IQR", "mad" = "mad"))
                                                    )
                                                  ),
 
