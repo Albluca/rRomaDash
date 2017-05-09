@@ -116,11 +116,10 @@ rRomaDash <- function(RomaData = NULL,
   #
   # }
 
-  ROMADataLoaded <- FALSE
-  ROMAInputLoaded <- FALSE
+  StartTime <- Sys.time()
 
-  ROMADataLoaded.Time <- NULL
-  ROMAInputLoaded.Time <- NULL
+  TimeVect <- rep(StartTime, 3)
+  names(TimeVect) <- c("Upload", "Local", "Analysis")
 
   InitReturn <- Initialize(RomaData, ExpMat, Groups)
 
@@ -632,17 +631,22 @@ rRomaDash <- function(RomaData = NULL,
                         titlePanel(""),
 
                         fluidRow(
-                          column(6, wellPanel(
-                              helpText("Upload a previously performed rRoma analysis"),
-                              fileInput("prev.rRoma", "Choose an rRoma file", accept = c(".rds")),
-                              actionButton("RDSload", "Load data")
-                            )
-                          ),
+
+                          column(6,
+                              wellPanel(
+                                helpText("Upload a previously performed rRoma analysis"),
+                                fileInput("prev.rRoma", "Choose an rRoma file", accept = c(".rds"))
+                              ),
+                              wellPanel(
+                                helpText("Download the rRoma analysis"),
+                                downloadButton("downloadData", "Download")
+                              )
+                            ),
 
                           column(6,
                             wellPanel(
-                              helpText("Download the rRoma analysis"),
-                              downloadButton("downloadData", "Download")
+                              helpText("Load rRoma analysis locally"),
+                              shinyFilesButton("load", "Load data", "Please select a file", FALSE)
                             ),
                             wellPanel(
                               helpText("Save rRoma analysis locally"),
@@ -665,6 +669,16 @@ rRomaDash <- function(RomaData = NULL,
   server <- function(input, output, session) {
 
     options(shiny.maxRequestSize=1000*1024^2)
+
+    Volumes = list("Working directory" = getwd(), "Volumes"= getVolumes())
+
+    shinyFileChoose(input, "load",
+                    roots=Volumes,
+                    session=session, filetypes=c('rds'))
+
+    shinyFileSave(input, "save",
+                  roots=Volumes,
+                  session=session)
 
     # Load GMT file ---------------------------------------------------------
 
@@ -802,20 +816,21 @@ rRomaDash <- function(RomaData = NULL,
 
     # Load previos ROMA file link ---------------------------------------------------------
 
-    LoadPastRoma <- eventReactive(input$RDSload, {
+    LoadPastRoma <- reactive({
 
       print("Loading data")
 
       FileName <- input$prev.rRoma
 
       if(!is.null(FileName)){
-        print("Setting load timestamp")
-        ROMADataLoaded.Time <<- Sys.time()
+        print("Setting upload timestamp")
+        TimeVect["Upload"] <<- Sys.time()
+        return(FileName)
       }
 
-      return(FileName)
+      return(NULL)
 
-    }, ignoreInit = FALSE, ignoreNULL = FALSE)
+    })
 
 
     # Do rROMA ---------------------------------------------------------
@@ -882,8 +897,7 @@ rRomaDash <- function(RomaData = NULL,
         Grouping = NULL, GroupPCSign = FALSE
       )
 
-      ROMAInputLoaded <<- TRUE
-      ROMAInputLoaded.Time <<- Sys.time()
+      TimeVect["Analysis"] <<- Sys.time()
       return(RomaData)
 
     }, ignoreInit = FALSE, ignoreNULL = FALSE)
@@ -1014,13 +1028,16 @@ rRomaDash <- function(RomaData = NULL,
 
       print("Getting Data")
 
-      print("Trying to load ROMA data")
+      print("Trying to load uploaded ROMA data")
       LoadDataStatus <- LoadPastRoma()
 
       print("Trying to load ROMA input")
       LoadInputStatus <- RunROMA()
 
-      if(is.null(ROMADataLoaded.Time) & is.null(ROMAInputLoaded.Time)){
+      print("Trying to load local ROMA data")
+      LoadServerStatus <- LoadFromServer()
+
+      if(all(TimeVect == StartTime)){
 
         return(list(
           RomaData = RomaData,
@@ -1035,7 +1052,7 @@ rRomaDash <- function(RomaData = NULL,
 
       }
 
-      if(!is.null(ROMADataLoaded.Time) & is.null(ROMAInputLoaded.Time)){
+      if(max(TimeVect) == TimeVect["Upload"]){
 
         print(paste("Loading", LoadDataStatus$datapath))
 
@@ -1048,7 +1065,7 @@ rRomaDash <- function(RomaData = NULL,
         updateSelectInput(session, inputId = "htype", choices = SelList)
         updateSelectInput(session, inputId = "aggfun", choices = SelListAF)
 
-        print("Passing on the information from the rds")
+        print("Passing on the information from the uploaded rds")
 
         return(list(
           RomaData = LoadedData$RomaData,
@@ -1063,7 +1080,7 @@ rRomaDash <- function(RomaData = NULL,
 
       }
 
-      if(is.null(ROMADataLoaded.Time) & !is.null(ROMAInputLoaded.Time)){
+      if(max(TimeVect) == TimeVect["Analysis"]){
 
         print("Passing on the information from the analysis")
 
@@ -1087,67 +1104,33 @@ rRomaDash <- function(RomaData = NULL,
 
       }
 
-      if(!is.null(ROMADataLoaded.Time) & !is.null(ROMAInputLoaded.Time)){
+      if(max(TimeVect) == TimeVect["Local"]){
 
-        if(ROMADataLoaded.Time > ROMAInputLoaded.Time){
-          # Using ROMA data
+        print(paste("Loading", LoadServerStatus))
 
-          print("Passing on the information from the rds")
+        LoadedData <- readRDS(LoadServerStatus)
 
-          print(paste("Loading", LoadDataStatus$datapath))
-
-          LoadedData <- readRDS(LoadDataStatus$datapath)
-
-          InitReturn <- Initialize(LoadedData$RomaData, LoadedData$ExpMat, LoadedData$Groups)
-
-        } else {
-          # Using The computed ROMA info
-
-          print("Passing on the information from the analysis")
-
-          InitReturn <- Initialize(LoadInputStatus, GetExpMat(), GetGroups())
-
-        }
+        InitReturn <- Initialize(LoadedData$RomaData, LoadedData$ExpMat, LoadedData$Groups)
 
         SelList <<- InitReturn$SelList
         SelListAF <<- InitReturn$SelListAF
         updateSelectInput(session, inputId = "htype", choices = SelList)
         updateSelectInput(session, inputId = "aggfun", choices = SelListAF)
 
+        print("Passing on the information from the local rds")
 
-        if(ROMADataLoaded.Time > ROMAInputLoaded.Time){
-
-          return(list(
-            RomaData = LoadedData$RomaData,
-            ExpMat = LoadedData$ExpMat,
-            FoundSamp = InitReturn$FoundSamp,
-            Groups = InitReturn$Groups,
-            AddInfo = InitReturn$AddInfo,
-            GSList = InitReturn$GSList,
-            PCAProj = InitReturn$PCAProj,
-            ProcessedSamples = InitReturn$ProcessedSamples
-          ))
-
-        } else {
-
-          return(list(
-            RomaData = LoadInputStatus,
-            ExpMat = GetExpMat(),
-            FoundSamp = InitReturn$FoundSamp,
-            Groups = InitReturn$Groups,
-            AddInfo = InitReturn$AddInfo,
-            GSList = InitReturn$GSList,
-            PCAProj = InitReturn$PCAProj,
-            ProcessedSamples = InitReturn$ProcessedSamples
-          ))
-
-        }
-
-
-
+        return(list(
+          RomaData = LoadedData$RomaData,
+          ExpMat = LoadedData$ExpMat,
+          FoundSamp = InitReturn$FoundSamp,
+          Groups = InitReturn$Groups,
+          AddInfo = InitReturn$AddInfo,
+          GSList = InitReturn$GSList,
+          PCAProj = InitReturn$PCAProj,
+          ProcessedSamples = InitReturn$ProcessedSamples
+        ))
 
       }
-
 
     })
 
@@ -2162,6 +2145,11 @@ rRomaDash <- function(RomaData = NULL,
         SelGenes <- which(as.numeric(AllGenesCorr[,"cor"]) < 0)
       }
 
+      if(length(SelGenes) == 0){
+        return(NULL)
+        updateSelectInput(session, "availGenes", choices = list())
+      }
+
       GeneNames <- AllGenesCorr[SelGenes, "gene"]
       GeneLabels <- paste(GeneNames, signif(as.numeric(AllGenesCorr[SelGenes, "cor"]), 4),
                           sep = ' | cor = ')
@@ -2172,9 +2160,6 @@ rRomaDash <- function(RomaData = NULL,
       updateSelectInput(session, "availGenes",
                         choices = RetList[order(as.numeric(AllGenesCorr[SelGenes, "cor"]))])
 
-      if(length(SelGenes) == 0){
-        return(NULL)
-      }
 
       AllGenesCorr.DF <- data.frame(AllGenesCorr[SelGenes,])
       AllGenesCorr.DF$cor <- as.numeric(as.character(AllGenesCorr.DF$cor))
@@ -2244,9 +2229,7 @@ rRomaDash <- function(RomaData = NULL,
 
     observe({
 
-      volumes <- c("Working Directory"=getwd())
-      shinyFileSave(input, "save", roots=volumes, session=session)
-      fileinfo <- parseSavePath(volumes, input$save)
+      fileinfo <- parseSavePath(Volumes, input$save)
 
       if (nrow(fileinfo) > 0) {
 
@@ -2272,6 +2255,24 @@ rRomaDash <- function(RomaData = NULL,
 
     })
 
+
+
+
+    # Load data locally ---------------------------------------------------------
+
+    LoadFromServer <- reactive({
+
+      fileinfo <- parseFilePaths(Volumes, input$load)
+
+      if (nrow(fileinfo) > 0) {
+        print("Setting local timestamp")
+        TimeVect["Local"] <<- Sys.time()
+        return(as.character(fileinfo$datapath))
+      } else {
+        return(NULL)
+      }
+
+    })
 
   }
 
