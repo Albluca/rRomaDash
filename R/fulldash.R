@@ -99,6 +99,7 @@ rRomaDash <- function(RomaData = NULL,
 
   library(rRoma)
   library(shiny)
+  library(shinyFiles)
 
    # preprocess data ---------------------------------------------------------
 
@@ -160,6 +161,8 @@ rRomaDash <- function(RomaData = NULL,
 
   nProcList <- as.list(as.character(1:32))
   names(nProcList) <- as.character(1:32)
+
+  InitialSave <- paste(getwd(), '/', 'rRoma-', Sys.Date(), '.rds', sep = "")
 
   # define ui ---------------------------------------------------------
 
@@ -639,10 +642,16 @@ rRomaDash <- function(RomaData = NULL,
                             )
                           ),
 
-                          column(6,wellPanel(
-                            helpText("Download the rRoma analysis"),
-                            downloadButton("downloadData", "Download")
-                          )
+                          column(6,
+                            wellPanel(
+                              helpText("Download the rRoma analysis"),
+                              downloadButton("downloadData", "Download")
+                            ),
+                            wellPanel(
+                              helpText("Save rRoma analysis locally"),
+                              shinySaveButton("save", "Save data", "Save file as",
+                                              filetype=list(rds="rds"))
+                            )
                           )
                         )
 
@@ -728,7 +737,7 @@ rRomaDash <- function(RomaData = NULL,
 
       }
 
-    }, ignoreInit = FALSE)
+    }, ignoreInit = FALSE, ignoreNULL = FALSE)
 
     # Print selected genesets ---------------------------------------------------------
 
@@ -2233,6 +2242,38 @@ rRomaDash <- function(RomaData = NULL,
 
     })
 
+
+    # Save data locally ---------------------------------------------------------
+
+    observe({
+
+      volumes <- c("Working Directory"=getwd())
+      shinyFileSave(input, "save", roots=volumes, session=session)
+      fileinfo <- parseSavePath(volumes, input$save)
+
+      if (nrow(fileinfo) > 0) {
+
+        RomaData <- GetData()$RomaData
+        ModuleList <- GetModuleList()
+        ExpMat <- GetData()$ExpMat
+        Groups <- GetData()$Groups
+
+        print(is.null(RomaData))
+        print(is.null(ModuleList))
+        print(is.null(ExpMat))
+        print(is.null(Groups))
+
+        rRomaDashData <- list(RomaData = RomaData,
+                              ModuleList = ModuleList,
+                              ExpMat = ExpMat,
+                              Groups = Groups)
+
+        print(paste("Saving to", as.character(fileinfo$datapath)))
+
+        saveRDS(rRomaDashData, as.character(fileinfo$datapath))
+      }
+
+    })
 
 
   }
