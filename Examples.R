@@ -39,6 +39,12 @@ names(Data$Groups) <- colnames(Data$ExpMat)
 saveRDS(Data, "/Users/newmac-luca/Google Drive/Datasets/Mosaic/rRoma-InfoSigMap.rds")
 
 
+Data <- readRDS("/Users/newmac-luca/Google Drive/Datasets/Mosaic/rRoma-Freeman.rds")
+Data$Groups <- factor(as.character(Data$Groups), levels = c("7", "7+2", "7+3", "7+4", "7+7", "7+10", "7+15"))
+names(Data$Groups) <- colnames(Data$ExpMat)
+saveRDS(Data, "/Users/newmac-luca/Google Drive/Datasets/Mosaic/rRoma-Freeman.rds")
+
+
 
 SubSet_rRomaRDS(SourceFile = "/Users/newmac-luca/Google Drive/Datasets/Mosaic/rRoma-InfoSigMap.rds",
                 TargetFile = "/Users/newmac-luca/Google Drive/Datasets/Mosaic/rRoma-InfoSigMap_Cancer.rds",

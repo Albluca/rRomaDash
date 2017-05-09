@@ -480,45 +480,45 @@ rRomaDash <- function(RomaData = NULL,
                                       tabPanel(title = "Modules",
                                                if(Interactive){
                                                  tabPanel("Plot",
-                                                          plotlyOutput("scatPlot"),
-                                                          plotOutput("boxPlot"),
-                                                          plotOutput("SamplesBoxPlot")
+                                                          plotlyOutput("scatPlot", height = "900px"),
+                                                          plotOutput("boxPlot", height = "500px"),
+                                                          plotOutput("SamplesBoxPlot", height = "400px")
                                                  )
                                                } else {
                                                  tabPanel("Plot",
-                                                          plotOutput("scatPlot"),
-                                                          plotOutput("boxPlot"),
-                                                          plotOutput("SamplesBoxPlot")
+                                                          plotOutput("scatPlot", height = "900px"),
+                                                          plotOutput("boxPlot", height = "500px"),
+                                                          plotOutput("SamplesBoxPlot", height = "400px")
                                                  )
                                                }
                                       ),
 
                                       # SubTab 2 ---------------------------------------------------------
                                       tabPanel("Heatmap", id = "tab2",
-                                               plotOutput("hmPlot", height = "800px")
+                                               plotOutput("hmPlot", height = "1600px")
                                                ),
 
                                       # SubTab 3 ---------------------------------------------------------
                                       tabPanel("Gene contribution", id = "tab3",
                                                selectInput("contribType", "Contribution mode:",
                                                            list("Positive", "Negative")),
-                                               plotOutput("CorrCI"),
+                                               plotOutput("CorrCI", height = "1000px"),
                                                # dataTableOutput("CorrTable"),
                                                selectInput("availGenes", "", GeneList),
-                                               plotOutput("ExpProj")
+                                               plotOutput("ExpProj", height = "1000px")
                                       ),
 
                                       # SubTab 4 ---------------------------------------------------------
                                       tabPanel("Correlation", id = "tab4",
                                                if(Interactive){
                                                  tabPanel("Plot",
-                                                          plotOutput("CorHmPlot", height = "800px"),
-                                                          plotlyOutput("CorScatPlot")
+                                                          plotOutput("CorHmPlot", height = "1500px"),
+                                                          plotlyOutput("CorScatPlot", height = "1000px")
                                                  )
                                                } else {
                                                  tabPanel("Plot",
-                                                          plotOutput("CorHmPlot", height = "800px"),
-                                                          plotOutput("CorScatPlot")
+                                                          plotOutput("CorHmPlot", height = "1500px"),
+                                                          plotOutput("CorScatPlot", height = "1000px")
                                                  )
                                                }
 
