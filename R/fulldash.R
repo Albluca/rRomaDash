@@ -31,7 +31,7 @@ Initialize <- function(RomaData, ExpMat, Groups){
       AddInfo <- NULL
     }
     SelList <- list("By sample" = "sample", "By group" = "group")
-    SelListAF <- list("Mean" = "mean", "Median" = "median", "Std. dev." = "sd", "IQR" = "IQR")
+    SelListAF <- list("Mean" = "mean", "Median" = "median", "Std. dev." = "sd", "IQR" = "IQR", "mad" = "mad")
 
   } else {
 
@@ -99,6 +99,7 @@ rRomaDash <- function(RomaData = NULL,
 
   library(rRoma)
   library(shiny)
+  library(shinyFiles)
 
    # preprocess data ---------------------------------------------------------
 
@@ -115,11 +116,10 @@ rRomaDash <- function(RomaData = NULL,
   #
   # }
 
-  ROMADataLoaded <- FALSE
-  ROMAInputLoaded <- FALSE
+  StartTime <- Sys.time()
 
-  ROMADataLoaded.Time <- NULL
-  ROMAInputLoaded.Time <- NULL
+  TimeVect <- rep(StartTime, 3)
+  names(TimeVect) <- c("Upload", "Local", "Analysis")
 
   InitReturn <- Initialize(RomaData, ExpMat, Groups)
 
@@ -131,6 +131,8 @@ rRomaDash <- function(RomaData = NULL,
   GSList <- InitReturn$GSList
   PCAProj <- InitReturn$PCAProj
   ProcessedSamples <- InitReturn$ProcessedSamples
+
+  GeneList <- list()
 
   tSNEProj <- PCAProj
 
@@ -158,6 +160,8 @@ rRomaDash <- function(RomaData = NULL,
 
   nProcList <- as.list(as.character(1:32))
   names(nProcList) <- as.character(1:32)
+
+  InitialSave <- paste(getwd(), '/', 'rRoma-', Sys.Date(), '.rds', sep = "")
 
   # define ui ---------------------------------------------------------
 
@@ -258,12 +262,9 @@ rRomaDash <- function(RomaData = NULL,
                                                                    list("none" = "none",
                                                                         "PreferActivation" = "PreferActivation",
                                                                         "UseAllWeights" = "UseAllWeights",
-                                                                        "PreferActivation" = "PreferActivation",
                                                                         "UseKnownWeights" = "UseKnownWeights",
-                                                                        "UseAllWeights" = "UseAllWeights",
                                                                         "CorrelateAllWeightsByGene" = "CorrelateAllWeightsByGene",
-                                                                        "CorrelateKnownWeightsByGene" = "CorrelateKnownWeightsByGene",
-                                                                        "CorrelateAllWeightsBySample" = "CorrelateAllWeightsBySample"),
+                                                                        "CorrelateKnownWeightsByGene" = "CorrelateKnownWeightsByGene"),
                                                                    selected = "CorrelateAllWeightsByGene"),
                                                        textInput("par_nSamples", "nSamples", "100"),
                                                        textInput("par_GeneOutThr", "GeneOutThr", "5")
@@ -375,6 +376,14 @@ rRomaDash <- function(RomaData = NULL,
                           ),
 
                           conditionalPanel(
+                            condition="input.ResTabs == 'Modules' || input.ResTabs == 'Gene contribution'",
+                            selectInput("gs", "GeneSet:",
+                                        GSList),
+                            htmlOutput("info"),
+                            hr()
+                          ),
+
+                          conditionalPanel(
                             condition="input.ResTabs == 'Heatmap' || input.ResTabs == 'Correlation'",
                             selectInput("htype", "Heatmap type:", SelList)
                           ),
@@ -386,11 +395,19 @@ rRomaDash <- function(RomaData = NULL,
 
 
                           conditionalPanel(
-                            condition="input.ResTabs == 'Correlation'",
+                            condition="input.ResTabs == 'Correlation' || input.ResTabs == 'Gene contribution'",
                             selectInput("cortype", "Correlation method:",
                                         list("Pearson" = "pearson",
                                              "Kendall" = "kendall",
                                              "Spearman" = "spearman"))
+                          ),
+
+                          conditionalPanel(
+                            condition="input.ResTabs == 'Gene contribution'",
+                            selectInput("corlelvel", "Confidence level:",
+                                        list(".95", ".99", ".999", ".9999")),
+                            actionButton("doCorr", "Compute correlations"),
+                            hr()
                           ),
 
                           conditionalPanel(
@@ -429,12 +446,7 @@ rRomaDash <- function(RomaData = NULL,
                                       max = -1.3,  min = -5,  value = -1.3, step = .1),
                           hr(),
 
-                          conditionalPanel(
-                            condition="input.ResTabs == 'Modules'",
-                            selectInput("gs", "GeneSet:",
-                                        GSList),
-                            htmlOutput("info")
-                          ),
+
 
                           conditionalPanel(
                             condition="input.ResTabs == 'Heatmap'",
@@ -467,42 +479,52 @@ rRomaDash <- function(RomaData = NULL,
                                       tabPanel(title = "Modules",
                                                if(Interactive){
                                                  tabPanel("Plot",
-                                                          plotlyOutput("scatPlot"),
-                                                          plotOutput("boxPlot"),
-                                                          plotOutput("SamplesBoxPlot")
+                                                          plotlyOutput("scatPlot", height = "900px"),
+                                                          plotOutput("boxPlot", height = "500px"),
+                                                          plotOutput("SamplesBoxPlot", height = "400px")
                                                  )
                                                } else {
                                                  tabPanel("Plot",
-                                                          plotOutput("scatPlot"),
-                                                          plotOutput("boxPlot"),
-                                                          plotOutput("SamplesBoxPlot")
+                                                          plotOutput("scatPlot", height = "900px"),
+                                                          plotOutput("boxPlot", height = "500px"),
+                                                          plotOutput("SamplesBoxPlot", height = "400px")
                                                  )
                                                }
                                       ),
 
                                       # SubTab 2 ---------------------------------------------------------
                                       tabPanel("Heatmap", id = "tab2",
-                                               plotOutput("hmPlot", height = "800px")
+                                               plotOutput("hmPlot", height = "1600px")
                                                ),
 
                                       # SubTab 3 ---------------------------------------------------------
-                                      tabPanel("Correlation", id = "tab3",
+                                      tabPanel("Gene contribution", id = "tab3",
+                                               selectInput("contribType", "Contribution mode:",
+                                                           list("Positive", "Negative")),
+                                               plotOutput("CorrCI", height = "1000px"),
+                                               # dataTableOutput("CorrTable"),
+                                               selectInput("availGenes", "", GeneList),
+                                               plotOutput("ExpProj", height = "1000px")
+                                      ),
+
+                                      # SubTab 4 ---------------------------------------------------------
+                                      tabPanel("Correlation", id = "tab4",
                                                if(Interactive){
                                                  tabPanel("Plot",
-                                                          plotOutput("CorHmPlot", height = "800px"),
-                                                          plotlyOutput("CorScatPlot")
+                                                          plotOutput("CorHmPlot", height = "1500px"),
+                                                          plotlyOutput("CorScatPlot", height = "1000px")
                                                  )
                                                } else {
                                                  tabPanel("Plot",
-                                                          plotOutput("CorHmPlot", height = "800px"),
-                                                          plotOutput("CorScatPlot")
+                                                          plotOutput("CorHmPlot", height = "1500px"),
+                                                          plotOutput("CorScatPlot", height = "1000px")
                                                  )
                                                }
 
                                                ),
 
-                                      # SubTab 4 ---------------------------------------------------------
-                                      tabPanel("ACSN (Selection)", id = "tab4",
+                                      # SubTab 5 ---------------------------------------------------------
+                                      tabPanel("ACSN (Selection)", id = "tab5",
                                                fluidPage(
 
                                                  fluidRow(
@@ -544,10 +566,10 @@ rRomaDash <- function(RomaData = NULL,
                                                    column(6,
                                                           selectInput("scoreaggfun", "Score aggregation:",
                                                                       list("mean" = "mean", "median" = "median",
-                                                                           "sd" = "sd", "IQR" = "IQR")),
+                                                                           "sd" = "sd", "IQR" = "IQR", "mad" = "mad")),
                                                           selectInput("geneaggfun", "Gene aggregation:",
                                                                       list("mean" = "mean", "median" = "median",
-                                                                           "sd" = "sd", "IQR" = "IQR"))
+                                                                           "sd" = "sd", "IQR" = "IQR", "mad" = "mad"))
                                                    )
                                                  ),
 
@@ -568,6 +590,7 @@ rRomaDash <- function(RomaData = NULL,
 
                                       ),
 
+                                      # SubTab 6 ---------------------------------------------------------
                                       tabPanel("ACSN (Info)", id = "tab5",
                                                fluidPage(
 
@@ -608,17 +631,28 @@ rRomaDash <- function(RomaData = NULL,
                         titlePanel(""),
 
                         fluidRow(
-                          column(6, wellPanel(
-                              helpText("Upload a previously performed rRoma analysis"),
-                              fileInput("prev.rRoma", "Choose an rRoma file", accept = c(".rds")),
-                              actionButton("RDSload", "Load data")
-                            )
-                          ),
 
-                          column(6,wellPanel(
-                            helpText("Download the rRoma analysis"),
-                            downloadButton("downloadData", "Download")
-                          )
+                          column(6,
+                              wellPanel(
+                                helpText("Upload a previously performed rRoma analysis"),
+                                fileInput("prev.rRoma", "Choose an rRoma file", accept = c(".rds"))
+                              ),
+                              wellPanel(
+                                helpText("Download the rRoma analysis"),
+                                downloadButton("downloadData", "Download")
+                              )
+                            ),
+
+                          column(6,
+                            wellPanel(
+                              helpText("Load rRoma analysis locally"),
+                              shinyFilesButton("load", "Load data", "Please select a file", FALSE)
+                            ),
+                            wellPanel(
+                              helpText("Save rRoma analysis locally"),
+                              shinySaveButton("save", "Save data", "Save file as",
+                                              filetype=list(rds="rds"))
+                            )
                           )
                         )
 
@@ -635,6 +669,16 @@ rRomaDash <- function(RomaData = NULL,
   server <- function(input, output, session) {
 
     options(shiny.maxRequestSize=1000*1024^2)
+
+    Volumes = list("Working directory" = getwd(), "Volumes"= getVolumes())
+
+    shinyFileChoose(input, "load",
+                    roots=Volumes,
+                    session=session, filetypes=c('rds'))
+
+    shinyFileSave(input, "save",
+                  roots=Volumes,
+                  session=session)
 
     # Load GMT file ---------------------------------------------------------
 
@@ -704,7 +748,7 @@ rRomaDash <- function(RomaData = NULL,
 
       }
 
-    }, ignoreInit = FALSE)
+    }, ignoreInit = FALSE, ignoreNULL = FALSE)
 
     # Print selected genesets ---------------------------------------------------------
 
@@ -772,20 +816,21 @@ rRomaDash <- function(RomaData = NULL,
 
     # Load previos ROMA file link ---------------------------------------------------------
 
-    LoadPastRoma <- eventReactive(input$RDSload, {
+    LoadPastRoma <- reactive({
 
       print("Loading data")
 
       FileName <- input$prev.rRoma
 
       if(!is.null(FileName)){
-        print("Setting load timestamp")
-        ROMADataLoaded.Time <<- Sys.time()
+        print("Setting upload timestamp")
+        TimeVect["Upload"] <<- Sys.time()
+        return(FileName)
       }
 
-      return(FileName)
+      return(NULL)
 
-    }, ignoreInit = FALSE, ignoreNULL = FALSE)
+    })
 
 
     # Do rROMA ---------------------------------------------------------
@@ -852,8 +897,7 @@ rRomaDash <- function(RomaData = NULL,
         Grouping = NULL, GroupPCSign = FALSE
       )
 
-      ROMAInputLoaded <<- TRUE
-      ROMAInputLoaded.Time <<- Sys.time()
+      TimeVect["Analysis"] <<- Sys.time()
       return(RomaData)
 
     }, ignoreInit = FALSE, ignoreNULL = FALSE)
@@ -912,8 +956,8 @@ rRomaDash <- function(RomaData = NULL,
         return(NULL)
       }
 
-      ModuleDF <- data.frame(Names = unlist(lapply(RomaData$ModuleSummary, "[[", "Name")),
-                             Genes = unlist(lapply(lapply(RomaData$ModuleSummary, "[[", "Genes"), length)))
+      ModuleDF <- data.frame(Names = unlist(lapply(RomaData$ModuleSummary, "[[", "ModuleName")),
+                             Genes = unlist(lapply(lapply(RomaData$ModuleSummary, "[[", "UsedGenes"), length)))
 
       ModuleDF[order(ModuleDF$Names),]
 
@@ -984,13 +1028,16 @@ rRomaDash <- function(RomaData = NULL,
 
       print("Getting Data")
 
-      print("Trying to load ROMA data")
+      print("Trying to load uploaded ROMA data")
       LoadDataStatus <- LoadPastRoma()
 
       print("Trying to load ROMA input")
       LoadInputStatus <- RunROMA()
 
-      if(is.null(ROMADataLoaded.Time) & is.null(ROMAInputLoaded.Time)){
+      print("Trying to load local ROMA data")
+      LoadServerStatus <- LoadFromServer()
+
+      if(all(TimeVect == StartTime)){
 
         return(list(
           RomaData = RomaData,
@@ -1005,7 +1052,7 @@ rRomaDash <- function(RomaData = NULL,
 
       }
 
-      if(!is.null(ROMADataLoaded.Time) & is.null(ROMAInputLoaded.Time)){
+      if(max(TimeVect) == TimeVect["Upload"]){
 
         print(paste("Loading", LoadDataStatus$datapath))
 
@@ -1018,7 +1065,7 @@ rRomaDash <- function(RomaData = NULL,
         updateSelectInput(session, inputId = "htype", choices = SelList)
         updateSelectInput(session, inputId = "aggfun", choices = SelListAF)
 
-        print("Passing on the information from the rds")
+        print("Passing on the information from the uploaded rds")
 
         return(list(
           RomaData = LoadedData$RomaData,
@@ -1033,7 +1080,7 @@ rRomaDash <- function(RomaData = NULL,
 
       }
 
-      if(is.null(ROMADataLoaded.Time) & !is.null(ROMAInputLoaded.Time)){
+      if(max(TimeVect) == TimeVect["Analysis"]){
 
         print("Passing on the information from the analysis")
 
@@ -1057,67 +1104,33 @@ rRomaDash <- function(RomaData = NULL,
 
       }
 
-      if(!is.null(ROMADataLoaded.Time) & !is.null(ROMAInputLoaded.Time)){
+      if(max(TimeVect) == TimeVect["Local"]){
 
-        if(ROMADataLoaded.Time > ROMAInputLoaded.Time){
-          # Using ROMA data
+        print(paste("Loading", LoadServerStatus))
 
-          print("Passing on the information from the rds")
+        LoadedData <- readRDS(LoadServerStatus)
 
-          print(paste("Loading", LoadDataStatus$datapath))
-
-          LoadedData <- readRDS(LoadDataStatus$datapath)
-
-          InitReturn <- Initialize(LoadedData$RomaData, LoadedData$ExpMat, LoadedData$Groups)
-
-        } else {
-          # Using The computed ROMA info
-
-          print("Passing on the information from the analysis")
-
-          InitReturn <- Initialize(LoadInputStatus, GetExpMat(), GetGroups())
-
-        }
+        InitReturn <- Initialize(LoadedData$RomaData, LoadedData$ExpMat, LoadedData$Groups)
 
         SelList <<- InitReturn$SelList
         SelListAF <<- InitReturn$SelListAF
         updateSelectInput(session, inputId = "htype", choices = SelList)
         updateSelectInput(session, inputId = "aggfun", choices = SelListAF)
 
+        print("Passing on the information from the local rds")
 
-        if(ROMADataLoaded.Time > ROMAInputLoaded.Time){
-
-          return(list(
-            RomaData = LoadedData$RomaData,
-            ExpMat = LoadedData$ExpMat,
-            FoundSamp = InitReturn$FoundSamp,
-            Groups = InitReturn$Groups,
-            AddInfo = InitReturn$AddInfo,
-            GSList = InitReturn$GSList,
-            PCAProj = InitReturn$PCAProj,
-            ProcessedSamples = InitReturn$ProcessedSamples
-          ))
-
-        } else {
-
-          return(list(
-            RomaData = LoadInputStatus,
-            ExpMat = GetExpMat(),
-            FoundSamp = InitReturn$FoundSamp,
-            Groups = InitReturn$Groups,
-            AddInfo = InitReturn$AddInfo,
-            GSList = InitReturn$GSList,
-            PCAProj = InitReturn$PCAProj,
-            ProcessedSamples = InitReturn$ProcessedSamples
-          ))
-
-        }
-
-
-
+        return(list(
+          RomaData = LoadedData$RomaData,
+          ExpMat = LoadedData$ExpMat,
+          FoundSamp = InitReturn$FoundSamp,
+          Groups = InitReturn$Groups,
+          AddInfo = InitReturn$AddInfo,
+          GSList = InitReturn$GSList,
+          PCAProj = InitReturn$PCAProj,
+          ProcessedSamples = InitReturn$ProcessedSamples
+        ))
 
       }
-
 
     })
 
@@ -1311,17 +1324,17 @@ rRomaDash <- function(RomaData = NULL,
       Groups <- GetData()$Groups
       ProcessedSamples <- GetData()$ProcessedSamples
 
-      GetComb <- function(GrpLevs) {
-        RetList <- list()
-        for(i in 1:length(GrpLevs)){
-          for(j in 1:length(GrpLevs)){
-            if(i<j){
-              RetList[[length(RetList)+1]] <- c(i, j)
-            }
-          }
-        }
-        return(RetList)
-      }
+      # GetComb <- function(GrpLevs) {
+      #   RetList <- list()
+      #   for(i in 1:length(GrpLevs)){
+      #     for(j in 1:length(GrpLevs)){
+      #       if(i<j){
+      #         RetList[[length(RetList)+1]] <- c(i, j)
+      #       }
+      #     }
+      #   }
+      #   return(RetList)
+      # }
 
       p <- ggplot2::ggplot(data = data.frame(Score = RomaData$ProjMatrix[SelectedGS(), ProcessedSamples],
                                              Group = Groups[ProcessedSamples]),
@@ -1803,7 +1816,7 @@ rRomaDash <- function(RomaData = NULL,
           p <- ggplot2::ggplot(data = data.frame(XVal = RomaData$ProjMatrix[as.integer(input$gs_x), ProcessedSamples],
                                                  YVal = RomaData$ProjMatrix[as.integer(input$gs_y), ProcessedSamples],
                                                  Group = Groups[ProcessedSamples]),
-                               ggplot2::aes(x = XVal, y = YVal, shape = Group)) +
+                               ggplot2::aes(x = XVal, y = YVal, color = Group)) +
             ggplot2::labs(x = XLab, y = YLab, shape = "", title = paste("Corr =", signif(CTitle, 5))) +
             ggplot2::geom_point(ggplot2::aes(text = ProcessedSamples))
 
@@ -1818,7 +1831,7 @@ rRomaDash <- function(RomaData = NULL,
           p <- ggplot2::ggplot(data = data.frame(XVal = AggX[,2],
                                                  YVal = AggY[,2],
                                                  Group = AggX[,1]),
-                               ggplot2::aes(x = XVal, y = YVal, shape = Group)) +
+                               ggplot2::aes(x = XVal, y = YVal, color = Group)) +
             ggplot2::labs(x = XLab, y = YLab, shape = "", title = paste("Corr =", signif(CTitle, 5))) +
             ggplot2::geom_point(ggplot2::aes(text = AggX[,1]))
 
@@ -1862,7 +1875,7 @@ rRomaDash <- function(RomaData = NULL,
           p <- ggplot2::ggplot(data = data.frame(XVal = RomaData$ProjMatrix[as.integer(input$gs_x), ProcessedSamples],
                                                  YVal = RomaData$ProjMatrix[as.integer(input$gs_y), ProcessedSamples],
                                                  Group = Groups[ProcessedSamples]),
-                               ggplot2::aes(x = XVal, y = YVal, shape = Group)) +
+                               ggplot2::aes(x = XVal, y = YVal, color = Group)) +
             ggplot2::labs(x = XLab, y = YLab, shape = "", title = paste("Corr =", signif(CTitle, 5))) +
             ggplot2::geom_point()
 
@@ -1878,7 +1891,7 @@ rRomaDash <- function(RomaData = NULL,
            p <- ggplot2::ggplot(data = data.frame(XVal = AggX[,2],
                                                  YVal = AggY[,2],
                                                  Group = AggX[,1]),
-                               ggplot2::aes(x = XVal, y = YVal, shape = Group)) +
+                               ggplot2::aes(x = XVal, y = YVal, color = Group)) +
             ggplot2::labs(x = XLab, y = YLab, shape = "", title = paste("Corr =", signif(CTitle, 5))) +
             ggplot2::geom_point()
 
@@ -2091,7 +2104,180 @@ rRomaDash <- function(RomaData = NULL,
 
     }, ignoreNULL = FALSE, ignoreInit = TRUE)
 
+
+    # Compute Correlations (Gene contribution) ---------------------------------------------------------
+
+    GetCorrs <- eventReactive(input$doCorr, {
+
+      ExpMat <- GetData()$ExpMat
+      RomaData <- GetData()$RomaData
+      ModuleID <- SelectedGS()
+
+      CorInfo <- GetCorrelations(RomaData = RomaData, Selected = ModuleID, MatData = ExpMat,
+                                 Methods = input$cortype, ConfLevel = as.numeric(input$corlelvel))
+
+      return(list(CorInfo = CorInfo, Method = input$cortype, ModuleID = ModuleID))
+
+    }, ignoreInit = TRUE)
+
+    output$CorrCI <- renderPlot({
+
+      AllGenesCorr <- GetCorrs()$CorInfo$Genes
+
+      if(GetCorrs()$Method != input$cortype | GetCorrs()$ModuleID != SelectedGS()){
+        updateSelectInput(session, "availGenes", choices = list())
+        return(NULL)
+      }
+
+      # Filter genes
+
+      AllGenesCorr <- AllGenesCorr[as.numeric(AllGenesCorr[,"p.val"]) <= (1 - as.numeric(input$corlelvel)), ]
+
+      # Get direction
+
+      SelGenes <- NULL
+
+      if(input$contribType == "Positive"){
+        SelGenes <- which(as.numeric(AllGenesCorr[,"cor"]) > 0)
+      }
+
+      if(input$contribType == "Negative"){
+        SelGenes <- which(as.numeric(AllGenesCorr[,"cor"]) < 0)
+      }
+
+      if(length(SelGenes) == 0){
+        return(NULL)
+        updateSelectInput(session, "availGenes", choices = list())
+      }
+
+      GeneNames <- AllGenesCorr[SelGenes, "gene"]
+      GeneLabels <- paste(GeneNames, signif(as.numeric(AllGenesCorr[SelGenes, "cor"]), 4),
+                          sep = ' | cor = ')
+
+      RetList <- as.list(GeneNames)
+      names(RetList) <- GeneLabels
+
+      updateSelectInput(session, "availGenes",
+                        choices = RetList[order(as.numeric(AllGenesCorr[SelGenes, "cor"]))])
+
+
+      AllGenesCorr.DF <- data.frame(AllGenesCorr[SelGenes,])
+      AllGenesCorr.DF$cor <- as.numeric(as.character(AllGenesCorr.DF$cor))
+      AllGenesCorr.DF$p.val <- as.numeric(as.character(AllGenesCorr.DF$p.val))
+      AllGenesCorr.DF$gene <- factor(as.character(AllGenesCorr.DF$gene),
+                                     levels = as.character(AllGenesCorr.DF$gene)[order(AllGenesCorr.DF$cor)])
+
+      if(input$cortype == "pearson"){
+        AllGenesCorr.DF$ci.low <- as.numeric(as.character(AllGenesCorr.DF$ci.low))
+        AllGenesCorr.DF$ci.high <- as.numeric(as.character(AllGenesCorr.DF$ci.high))
+
+        p <- ggplot2::ggplot(data = AllGenesCorr.DF,
+                             ggplot2::aes(x = gene, y = cor, ymin = ci.low, ymax = ci.high)) +
+          ggplot2::geom_pointrange() + ggplot2::geom_point() + ggplot2::coord_flip() +
+          ggplot2::labs(y = "Correlation")
+
+      } else {
+
+        p <- ggplot2::ggplot(data = AllGenesCorr.DF,
+                             ggplot2::aes(x = gene, y = cor)) +
+          ggplot2::geom_point() + ggplot2::coord_flip() +
+          ggplot2::labs(y = "Correlation")
+
+      }
+
+
+      if(input$contribType == "Positive"){
+        p <- p + ggplot2::scale_y_continuous(limits = c(0, 1))
+      }
+
+      if(input$contribType == "Negative"){
+        p <- p + ggplot2::scale_y_continuous(limits = c(-1, 0))
+      }
+
+      print(p)
+
+    })
+
+
+    output$ExpProj <- renderPlot({
+
+      if(input$availGenes != ""){
+
+        GeneExp <- GetData()$ExpMat[input$availGenes, ]
+        ModScore <- GetData()$RomaData$ProjMatrix[SelectedGS(),]
+
+        SampleNames <- intersect(names(GeneExp), names(ModScore))
+
+        NewDF <- data.frame(Samples = SampleNames,
+                            Expression = GeneExp[SampleNames],
+                            Score = ModScore[SampleNames],
+                            Groups = GetData()$Groups)
+
+        p <- ggplot2::ggplot(data = NewDF, ggplot2::aes(x = Score, y = Expression)) +
+          ggplot2::geom_smooth() +
+          ggplot2::geom_point(mapping = ggplot2::aes(color = Groups)) +
+          ggplot2::labs(x = "Module score", y = "Gene expression")
+
+        print(p)
+      }
+
+
+    })
+
+
+    # Save data locally ---------------------------------------------------------
+
+    observe({
+
+      fileinfo <- parseSavePath(Volumes, input$save)
+
+      if (nrow(fileinfo) > 0) {
+
+        RomaData <- GetData()$RomaData
+        ModuleList <- GetModuleList()
+        ExpMat <- GetData()$ExpMat
+        Groups <- GetData()$Groups
+
+        print(is.null(RomaData))
+        print(is.null(ModuleList))
+        print(is.null(ExpMat))
+        print(is.null(Groups))
+
+        rRomaDashData <- list(RomaData = RomaData,
+                              ModuleList = ModuleList,
+                              ExpMat = ExpMat,
+                              Groups = Groups)
+
+        print(paste("Saving to", as.character(fileinfo$datapath)))
+
+        saveRDS(rRomaDashData, as.character(fileinfo$datapath))
+      }
+
+    })
+
+
+
+
+    # Load data locally ---------------------------------------------------------
+
+    LoadFromServer <- reactive({
+
+      fileinfo <- parseFilePaths(Volumes, input$load)
+
+      if (nrow(fileinfo) > 0) {
+        print("Setting local timestamp")
+        TimeVect["Local"] <<- Sys.time()
+        return(as.character(fileinfo$datapath))
+      } else {
+        return(NULL)
+      }
+
+    })
+
   }
+
+
+
 
 
 

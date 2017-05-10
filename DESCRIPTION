@@ -12,7 +12,8 @@ LazyData: true
 Depends:
     R (>= 3.0),
     rRoma,
-    shiny
+    shiny,
+    shinyFiles
 Imports:
     parallel,
     readr,
