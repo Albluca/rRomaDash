@@ -107,11 +107,11 @@ rRomaDash <- function(RomaData = NULL,
     print("Detaching plotly.")
     detach("package:plotly", unload=TRUE)
   }
-  
+
   if(Interactive){
     library(plotly)
   }
-  
+
 
 
   # if(Interactive){
@@ -199,14 +199,14 @@ rRomaDash <- function(RomaData = NULL,
                                        fluidRow(
                                          titlePanel("Expression matrix"),
                                          column(8,
-                                                fileInput("expmatfile", "Choose an expresison matrix (TSV file)", accept = c(".tsv"))
+                                                fileInput("expmatfile", "Choose an expression matrix (TSV file)", accept = c(".tsv"))
                                                 )
                                        ),
 
                                        fluidRow(
                                          titlePanel("Sample groups"),
                                          column(8,
-                                                fileInput("groupfile", "Choose an group matrix (TSV file)", accept = c(".tsv"))
+                                                fileInput("groupfile", "Choose a group matrix (TSV file)", accept = c(".tsv"))
                                          ),
                                          column(4,
                                                 checkboxInput("usegroups", "Use groups", TRUE)
@@ -363,7 +363,7 @@ rRomaDash <- function(RomaData = NULL,
                         sidebarPanel(
                           conditionalPanel(
                             condition="input.ResTabs == 'Modules'",
-                            selectInput("prjt", "Projectin type:",
+                            selectInput("prjt", "Projection type:",
                                         list("PCA" = "PCA", "tSNE" = "tSNE"))
                           ),
 
@@ -381,7 +381,7 @@ rRomaDash <- function(RomaData = NULL,
 
                           conditionalPanel(
                             condition="input.ResTabs == 'Modules' || input.ResTabs == 'Gene contribution'",
-                            selectInput("gs", "GeneSet:",
+                            selectInput("gs", "Geneset:",
                                         GSList),
                             htmlOutput("info"),
                             hr()
@@ -423,6 +423,11 @@ rRomaDash <- function(RomaData = NULL,
                           conditionalPanel(
                             condition="input.ResTabs == 'Heatmap' || input.ResTabs == 'Correlation'",
                             checkboxInput("gsclus", "Cluster genesets", FALSE),
+                            selectInput("GSOrdeMode", "Geneset information:",
+                                        choices = c("None", "Gene number",
+                                                    "Overdispersion pv", "Underdispersion pv",
+                                                    "Overcoordination pv", "Undercoordination pv",
+                                                    "Overexpression pv", "Underexpression pv")),
                             hr()
                           ),
 
@@ -462,9 +467,9 @@ rRomaDash <- function(RomaData = NULL,
 
                           conditionalPanel(
                             condition="input.ResTabs == 'Correlation'",
-                            selectInput("gs_x", "GeneSet (x axis):",
+                            selectInput("gs_x", "Geneset (x axis):",
                                         GSList),
-                            selectInput("gs_y", "GeneSet (y axis):",
+                            selectInput("gs_y", "Geneset (y axis):",
                                         GSList),
                             sliderInput("lcor", "Lower limit",
                                         max = 0,  min = -1,  value = -1, step = .1),
@@ -479,7 +484,7 @@ rRomaDash <- function(RomaData = NULL,
 
                         mainPanel(
                           tabsetPanel(id = "ResTabs",
-                                      # SubTab 1 ---------------------------------------------------------
+                                      # SubTab 1 (PCA/tSNE) ---------------------------------------------------------
                                       tabPanel(title = "Modules",
                                                if(Interactive){
                                                  tabPanel("Plot",
@@ -496,7 +501,7 @@ rRomaDash <- function(RomaData = NULL,
                                                }
                                       ),
 
-                                      # SubTab 2 ---------------------------------------------------------
+                                      # SubTab 2 (Module heatmap) ---------------------------------------------------------
                                       tabPanel("Heatmap", id = "tab2",
                                                plotOutput("hmPlot", height = "1600px")
                                                ),
@@ -1210,13 +1215,14 @@ rRomaDash <- function(RomaData = NULL,
         return(NULL)
       }
 
-      str1 <- paste("Overdispersed PV = ", signif(RomaData$PVVectMat[SelectedGS(), 1]))
-      str2 <- paste("Underdispersed PV = ", signif(RomaData$PVVectMat[SelectedGS(), 2]))
-      str3 <- paste("Overcoordinated PV = ", signif(RomaData$PVVectMat[SelectedGS(), 3]))
-      str4 <- paste("Undercoordinated PV = ", signif(RomaData$PVVectMat[SelectedGS(), 4]))
-      str5 <- paste("Overexpressed PV = ", signif(RomaData$PVVectMat[SelectedGS(), 5]))
-      str6 <- paste("Underexpressed PV = ", signif(RomaData$PVVectMat[SelectedGS(), 6]))
-      HTML(paste(str1, str2, str3, str4, str5, str6, sep = '<br/>'))
+      str1 <- paste("Number of genes = ", length(RomaData$ModuleSummary[[SelectedGS()]]$UsedGenes))
+      str2 <- paste("Overdispersed PV = ", signif(RomaData$PVVectMat[SelectedGS(), 1]))
+      str3 <- paste("Underdispersed PV = ", signif(RomaData$PVVectMat[SelectedGS(), 2]))
+      str4 <- paste("Overcoordinated PV = ", signif(RomaData$PVVectMat[SelectedGS(), 3]))
+      str5 <- paste("Undercoordinated PV = ", signif(RomaData$PVVectMat[SelectedGS(), 4]))
+      str6 <- paste("Overexpressed PV = ", signif(RomaData$PVVectMat[SelectedGS(), 5]))
+      str7 <- paste("Underexpressed PV = ", signif(RomaData$PVVectMat[SelectedGS(), 6]))
+      HTML(paste(str1, str2, str3, str4, str5, str6, str7, sep = '<br/>'))
     })
 
 
@@ -1451,6 +1457,58 @@ rRomaDash <- function(RomaData = NULL,
 
       PlotMat <- RomaData$ProjMatrix[Idx,]
 
+      GSCat <- rep(NA, nrow(PlotMat))
+      names(GSCat) <- rownames(PlotMat)
+
+      if(input$GSOrdeMode == "None"){
+        GSOrdering <- order(rownames(PlotMat))
+        GSCat = NULL
+      }
+
+      if(input$GSOrdeMode == "Gene number"){
+        nGenes <- unlist(lapply(lapply(RomaData$ModuleSummary[Idx], "[[", "UsedGenes"), length))
+        GSOrdering <- order(nGenes)
+        GSCat[] = nGenes
+        GSCat <- data.frame(Genes = signif(GSCat, 2))
+      }
+
+      if(input$GSOrdeMode == "Overdispersion pv"){
+        GSOrdering <- order(RomaData$PVVectMat[Idx, "L1 WT less pv"])
+        GSCat[] = log10(RomaData$PVVectMat[Idx, "L1 WT less pv"])
+        GSCat <- data.frame("OD lpv" = signif(GSCat, 2))
+      }
+
+      if(input$GSOrdeMode == "Underdispersion pv"){
+        GSOrdering <- order(RomaData$PVVectMat[Idx, "L1 WT greater pv"])
+        GSCat[] = log10(RomaData$PVVectMat[Idx, "L1 WT greater pv"])
+        GSCat <- data.frame("UD lpv" = signif(GSCat, 2))
+      }
+
+      if(input$GSOrdeMode == "Overcoordination pv"){
+        GSOrdering <- order(RomaData$PVVectMat[Idx, "L1/L2 WT less pv"])
+        GSCat[] = log10(RomaData$PVVectMat[Idx, "L1/L2 WT less pv"])
+        GSCat <- data.frame("OC lpv" = signif(GSCat, 2))
+      }
+
+      if(input$GSOrdeMode == "Undercoordination pv"){
+        GSOrdering <- order(RomaData$PVVectMat[Idx, "L1/2 WT greater pv"])
+        GSCat[] = log10(RomaData$PVVectMat[Idx, "L1/2 WT greater pv"])
+        GSCat <- data.frame("UC lpv" = signif(GSCat, 2))
+      }
+
+      if(input$GSOrdeMode == "Overexpression pv"){
+        GSOrdering <- order(RomaData$PVVectMat[Idx, "Median Exp WT less pv"])
+        GSCat[] = log10(RomaData$PVVectMat[Idx, "Median Exp WT less pv"])
+        GSCat <- data.frame("OE lpv" = signif(GSCat, 2))
+      }
+
+      if(input$GSOrdeMode == "Underexpression pv"){
+        GSOrdering <- order(RomaData$PVVectMat[Idx, "Median Exp WT greater pv"])
+        GSCat[] = log10(RomaData$PVVectMat[Idx, "Median Exp WT greater pv"])
+        GSCat <- data.frame("UE lpv" = signif(GSCat, 2))
+      }
+
+
       if(input$htype == "sample"){
 
         MinMax <- range(PlotMat)
@@ -1517,13 +1575,15 @@ rRomaDash <- function(RomaData = NULL,
         if(length(Idx)>1){
 
           if(input$gscol){
-            pheatmap::pheatmap(PlotMat, color = BaseCol[UseCol], breaks = MyBreaks,
+            pheatmap::pheatmap(PlotMat[GSOrdering,], color = BaseCol[UseCol], breaks = MyBreaks,
                                cluster_rows = input$gsclus, cluster_cols = input$saclus,
-                               annotation_col = AddInfo, main = "Module scores across samples")
+                               annotation_col = AddInfo, annotation_row = GSCat,
+                               main = "Module scores across samples")
           } else {
-            pheatmap::pheatmap(t(PlotMat), color = BaseCol[UseCol], breaks = MyBreaks,
+            pheatmap::pheatmap(t(PlotMat[GSOrdering,]), color = BaseCol[UseCol], breaks = MyBreaks,
                                cluster_rows = input$saclus, cluster_cols = input$gsclus,
-                               annotation_row = AddInfo, main = "Module scores across samples")
+                               annotation_row = AddInfo, annotation_col = GSCat,
+                               main = "Module scores across samples")
           }
 
 
@@ -1533,7 +1593,7 @@ rRomaDash <- function(RomaData = NULL,
 
           names(PlotMat) <- colnames(RomaData$ProjMatrix)
 
-          pheatmap::pheatmap(t(PlotMat), BaseCol[UseCol], breaks = MyBreaks,
+          pheatmap::pheatmap(t(PlotMat[GSOrdering,]), BaseCol[UseCol], breaks = MyBreaks,
                              cluster_rows = FALSE, cluster_cols = FALSE,
                              main = paste("Score of", rownames(RomaData$ProjMatrix)[Idx]))
 
@@ -1611,13 +1671,13 @@ rRomaDash <- function(RomaData = NULL,
 
 
           if(input$gscol){
-            pheatmap::pheatmap(Aggmat, color = BaseCol[UseCol], breaks = MyBreaks,
+            pheatmap::pheatmap(Aggmat[GSOrdering,], color = BaseCol[UseCol], breaks = MyBreaks,
                                cluster_rows = input$gsclus, cluster_cols = input$saclus,
-                               main = "Module scores across groups")
+                               annotation_row = GSCat, main = "Module scores across groups")
           } else {
-            pheatmap::pheatmap(t(Aggmat), color = BaseCol[UseCol], breaks = MyBreaks,
+            pheatmap::pheatmap(t(Aggmat[GSOrdering,]), color = BaseCol[UseCol], breaks = MyBreaks,
                                cluster_rows = input$saclus, cluster_cols = input$gsclus,
-                               main = "Module scores across groups")
+                               annotation_col = GSCat, main = "Module scores across groups")
           }
 
         }
@@ -1725,6 +1785,57 @@ rRomaDash <- function(RomaData = NULL,
 
       Idx <- SelectedIdx()
 
+      GSCat <- rep(NA, nrow(RomaData$ProjMatrix[Idx, ]))
+      names(GSCat) <- rownames(RomaData$ProjMatrix[Idx, ])
+
+      if(input$GSOrdeMode == "None"){
+        GSOrdering <- order(rownames(PlotMat))
+        GSCat = NULL
+      }
+
+      if(input$GSOrdeMode == "Gene number"){
+        nGenes <- unlist(lapply(lapply(RomaData$ModuleSummary[Idx], "[[", "UsedGenes"), length))
+        GSOrdering <- order(nGenes)
+        GSCat[] = nGenes
+        GSCat <- data.frame(Genes = signif(GSCat, 2))
+      }
+
+      if(input$GSOrdeMode == "Overdispersion pv"){
+        GSOrdering <- order(RomaData$PVVectMat[Idx, "L1 WT less pv"])
+        GSCat[] = log10(RomaData$PVVectMat[Idx, "L1 WT less pv"])
+        GSCat <- data.frame("OD lpv" = signif(GSCat, 2))
+      }
+
+      if(input$GSOrdeMode == "Underdispersion pv"){
+        GSOrdering <- order(RomaData$PVVectMat[Idx, "L1 WT greater pv"])
+        GSCat[] = log10(RomaData$PVVectMat[Idx, "L1 WT greater pv"])
+        GSCat <- data.frame("UD lpv" = signif(GSCat, 2))
+      }
+
+      if(input$GSOrdeMode == "Overcoordination pv"){
+        GSOrdering <- order(RomaData$PVVectMat[Idx, "L1/L2 WT less pv"])
+        GSCat[] = log10(RomaData$PVVectMat[Idx, "L1/L2 WT less pv"])
+        GSCat <- data.frame("OC lpv" = signif(GSCat, 2))
+      }
+
+      if(input$GSOrdeMode == "Undercoordination pv"){
+        GSOrdering <- order(RomaData$PVVectMat[Idx, "L1/2 WT greater pv"])
+        GSCat[] = log10(RomaData$PVVectMat[Idx, "L1/2 WT greater pv"])
+        GSCat <- data.frame("UC lpv" = signif(GSCat, 2))
+      }
+
+      if(input$GSOrdeMode == "Overexpression pv"){
+        GSOrdering <- order(RomaData$PVVectMat[Idx, "Median Exp WT less pv"])
+        GSCat[] = log10(RomaData$PVVectMat[Idx, "Median Exp WT less pv"])
+        GSCat <- data.frame("OE lpv" = signif(GSCat, 2))
+      }
+
+      if(input$GSOrdeMode == "Underexpression pv"){
+        GSOrdering <- order(RomaData$PVVectMat[Idx, "Median Exp WT greater pv"])
+        GSCat[] = log10(RomaData$PVVectMat[Idx, "Median Exp WT greater pv"])
+        GSCat <- data.frame("UE lpv" = signif(GSCat, 2))
+      }
+
       LowBrk <- c(-1.01, seq(from = input$lcor*(26/27), to = 0, by = -input$lcor/27))
       HighBrk <- c(seq(from = input$ucor/27, to = (26/27)*input$ucor, by = input$ucor/27), 1.01)
 
@@ -1746,8 +1857,9 @@ rRomaDash <- function(RomaData = NULL,
       if(input$htype == "sample"){
 
         if(length(Idx)>1){
-          pheatmap::pheatmap(cor(t(RomaData$ProjMatrix[Idx,]), method = input$cortype),
+          pheatmap::pheatmap(cor(t(RomaData$ProjMatrix[Idx,]), method = input$cortype)[GSOrdering, GSOrdering],
                              color = BaseCol[UseCol], breaks = MyBreaks,
+                             annotation_row = GSCat, annotation_col = GSCat,
                              cluster_rows = input$gsclus, cluster_cols = input$gsclus,
                              main = "Correlation across samples")
         }
@@ -1767,8 +1879,10 @@ rRomaDash <- function(RomaData = NULL,
             apply(x, 2, get(input$aggfun))
           })
 
-          pheatmap::pheatmap(cor(t(Aggmat), method = input$cortype), color = BaseCol[UseCol], breaks = MyBreaks,
+          pheatmap::pheatmap(cor(t(Aggmat), method = input$cortype)[GSOrdering, GSOrdering],
+                             color = BaseCol[UseCol], breaks = MyBreaks,
                              cluster_rows = input$gsclus, cluster_cols = input$gsclus,
+                             annotation_row = GSCat, annotation_col = GSCat,
                              main = "Correlation across groups")
 
         }
