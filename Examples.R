@@ -33,10 +33,16 @@ names(Data$Groups) <- colnames(Data$ExpMat)
 saveRDS(Data, "/Users/newmac-luca/Google Drive/Datasets/Mosaic/rRoma-Biocarta.rds")
 
 
+Data <- readRDS("~/Google Drive/Datasets/Mosaic/rRoma-InfoSigMap.rds")
+Data$Groups <- factor(as.character(Data$Groups), levels = c("7", "7+2", "7+3", "7+4", "7+7", "7+10", "7+15"))
+names(Data$Groups) <- colnames(Data$ExpMat)
+saveRDS(Data, "~/Google Drive/Datasets/Mosaic/rRoma-InfoSigMap.rds")
+
+
 
 
 library(readr)
-GSE72056_melanoma_single_cell_revised_v2 <- read_delim("~/Google Drive/Datasets/Tirosh et al - Human oligodendroglioma immune cells/GSE72056_melanoma_single_cell_revised_v2.txt",
+GSE72056_melanoma_single_cell_revised_v2 <- read_delim("~/Google Drive/Datasets/Tirosh et al - Human oligodendroglioma immune cells/GSE72056_melanoma_single_cell_revised_v2.txt.gz",
                                                        "\t", escape_double = FALSE, trim_ws = TRUE)
 
 
@@ -50,6 +56,6 @@ GSE72056_melanoma_single_cell_revised_v2 <-
 GSE72056_melanoma_single_cell_revised_v2[,-1] <- log10(GSE72056_melanoma_single_cell_revised_v2[,-1] + 1)
 
 write_delim(GSE72056_melanoma_single_cell_revised_v2, delim = "\t",
-            path = "~/Google Drive/Datasets/Tirosh et al - Human oligodendroglioma immune cells/CleanedData.txt")
+            path = "~/Google Drive/Datasets/Tirosh et al - Human oligodendroglioma immune cells/ProcessedMatrix.txt")
 
 
