@@ -1324,17 +1324,17 @@ rRomaDash <- function(RomaData = NULL,
       Groups <- GetData()$Groups
       ProcessedSamples <- GetData()$ProcessedSamples
 
-      GetComb <- function(GrpLevs) {
-        RetList <- list()
-        for(i in 1:length(GrpLevs)){
-          for(j in 1:length(GrpLevs)){
-            if(i<j){
-              RetList[[length(RetList)+1]] <- c(i, j)
-            }
-          }
-        }
-        return(RetList)
-      }
+      # GetComb <- function(GrpLevs) {
+      #   RetList <- list()
+      #   for(i in 1:length(GrpLevs)){
+      #     for(j in 1:length(GrpLevs)){
+      #       if(i<j){
+      #         RetList[[length(RetList)+1]] <- c(i, j)
+      #       }
+      #     }
+      #   }
+      #   return(RetList)
+      # }
 
       p <- ggplot2::ggplot(data = data.frame(Score = RomaData$ProjMatrix[SelectedGS(), ProcessedSamples],
                                              Group = Groups[ProcessedSamples]),
