@@ -107,7 +107,11 @@ rRomaDash <- function(RomaData = NULL,
     print("Detaching plotly.")
     detach("package:plotly", unload=TRUE)
   }
-  library(plotly)
+  
+  if(Interactive){
+    library(plotly)
+  }
+  
 
 
   # if(Interactive){
