@@ -376,6 +376,8 @@ rRomaDash <- function(RomaData = NULL,
 
                           conditionalPanel(
                             condition="input.ResTabs == 'Modules'",
+                            selectInput("boxcomp", "Group comparison:",
+                                        c("Show all", "Show none", "Show significant")),
                             hr()
                           ),
 
@@ -1330,35 +1332,44 @@ rRomaDash <- function(RomaData = NULL,
 
     output$boxPlot <- renderPlot({
 
+      if(is.na(SelectedGS())){
+        return(NULL)
+      }
+
       RomaData <- GetData()$RomaData
       Groups <- GetData()$Groups
       ProcessedSamples <- GetData()$ProcessedSamples
 
-      # GetComb <- function(GrpLevs) {
-      #   RetList <- list()
-      #   for(i in 1:length(GrpLevs)){
-      #     for(j in 1:length(GrpLevs)){
-      #       if(i<j){
-      #         RetList[[length(RetList)+1]] <- c(i, j)
-      #       }
-      #     }
-      #   }
-      #   return(RetList)
-      # }
+      DataToPlot <- data.frame(Score = RomaData$ProjMatrix[SelectedGS(), ProcessedSamples],
+                               Group = Groups[ProcessedSamples])
 
-      p <- ggplot2::ggplot(data = data.frame(Score = RomaData$ProjMatrix[SelectedGS(), ProcessedSamples],
-                                             Group = Groups[ProcessedSamples]),
-                           ggplot2::aes(x = Group, y = Score)) +
+      p <- ggplot2::ggplot(data = DataToPlot, ggplot2::aes(x = Group, y = Score)) +
         ggplot2::geom_boxplot()
 
-      if(length(unique(Groups[ProcessedSamples]))>1){
-        p <- p + ggsignif::geom_signif(comparisons = GetComb(unique(Groups[ProcessedSamples])),
-                                       map_signif_level=TRUE, test = "wilcox.test", step_increase = .1)
+      if(length(unique(Groups[ProcessedSamples]))>1 & input$boxcomp != "Show none"){
+
+        if(input$boxcomp == "Show all"){
+          ToDisplay <- GetComb(unique(Groups[ProcessedSamples]))
+        }
+
+        if(input$boxcomp == "Show significant"){
+          PWComp <- pairwise.wilcox.test(DataToPlot$Score, DataToPlot$Group)$p.value
+          ExtPWComp <- matrix(rep(NA, length(unique(DataToPlot$Group))^2), nrow = length(unique(DataToPlot$Group)))
+          colnames(ExtPWComp) <- sort(unique(DataToPlot$Group))
+          rownames(ExtPWComp) <- colnames(ExtPWComp)
+
+          ExtPWComp[rownames(PWComp), colnames(PWComp)] <- PWComp
+
+          ToDisplay <- apply(which(ExtPWComp <= .05, arr.ind = TRUE), 1, list)
+          ToDisplay <- lapply(ToDisplay, function(x){as.integer(unlist(x))})
+          # names(ToDisplay) <- NULL
+        }
+
+        p <- p + ggsignif::geom_signif(comparisons = ToDisplay, map_signif_level=TRUE, test = "wilcox.test", step_increase = .1)
+
       }
 
-      if(!is.na(SelectedGS())){
-        print(p)
-      }
+      print(p)
 
     })
 
@@ -1435,9 +1446,7 @@ rRomaDash <- function(RomaData = NULL,
       })
     }
 
-
-
-    # heatmap ---------------------------------------------------------
+    # heatmap (modules) plot ---------------------------------------------------------
 
     output$hmPlot <- renderPlot({
 
