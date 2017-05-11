@@ -97,9 +97,9 @@ rRomaDash <- function(RomaData = NULL,
                       Groups = NULL,
                       Interactive = FALSE) {
 
-  library(rRoma)
-  library(shiny)
-  library(shinyFiles)
+  # library(rRoma)
+  # library(shiny)
+  # library(shinyFiles)
 
    # preprocess data ---------------------------------------------------------
 
