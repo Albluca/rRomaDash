@@ -15,11 +15,11 @@ Initialize <- function(RomaData, ExpMat, Groups){
                 PCAProj = NULL, ProcessedSamples = NULL))
   }
 
-  ProcessedSamples <- colnames(RomaData$ProjMatrix)
+  ProcessedSamples <- colnames(RomaData$SampleMatrix)
 
   if(!is.null(Groups)){
 
-    FoundSamp <- intersect(colnames(RomaData$ProjMatrix), names(Groups))
+    FoundSamp <- intersect(colnames(RomaData$SampleMatrix), names(Groups))
     Groups <- Groups[FoundSamp]
 
     if(length(FoundSamp) > 2){
@@ -53,7 +53,7 @@ Initialize <- function(RomaData, ExpMat, Groups){
   if(!is.null(RomaData)){
 
     GSList <- as.list(1:nrow(RomaData$PVVectMat))
-    names(GSList) <- as.list(rownames(RomaData$ProjMatrix))
+    names(GSList) <- as.list(rownames(RomaData$SampleMatrix))
     GSList <- GSList[order(names(GSList))]
 
     PCAProj <- irlba::prcomp_irlba(t(ExpMat[,ProcessedSamples]), 2, retx = TRUE)$x
@@ -322,7 +322,12 @@ rRomaDash <- function(RomaData = NULL,
                                                        selectInput("par_CorMethod", "CorMethod",
                                                                    list("pearson" = "pearson",
                                                                         "kendall" = "kendall",
-                                                                        "spearman" = "spearman"), selected = "pearson"))
+                                                                        "spearman" = "spearman"), selected = "pearson"),
+                                                       selectInput("par_PCAType", "PCAType",
+                                                                   list("DimensionsAreGenes" = "DimensionsAreGenes",
+                                                                        "DimensionsAreSamples" = "DimensionsAreSamples"),
+                                                                   selected = "DimensionsAreGenes")
+                                                       )
                                      )
 
 
@@ -905,7 +910,8 @@ rRomaDash <- function(RomaData = NULL,
         CorMethod = input$par_CorMethod,
         PCSignThr = Cleaned_PCSignThr,
         PlotData = FALSE, PCADims = 2, SamplingGeneWeights = NULL, FillNAMethod = list(),
-        Grouping = NULL, GroupPCSign = FALSE
+        Grouping = NULL, GroupPCSign = FALSE,
+        PCAType = input$par_PCAType
       )
 
       TimeVect["Analysis"] <<- Sys.time()
@@ -1194,7 +1200,7 @@ rRomaDash <- function(RomaData = NULL,
 
       if(length(Idx)>0){
         GSList <- Idx
-        names(GSList) <- as.list(rownames(RomaData$ProjMatrix)[Idx])
+        names(GSList) <- as.list(rownames(RomaData$SampleMatrix)[Idx])
         GSList <- GSList[order(names(GSList))]
       } else {
         GSList <- list(" " = "")
@@ -1240,10 +1246,10 @@ rRomaDash <- function(RomaData = NULL,
 
       SeID <- SelectedGS()
 
-      Sampled.DF <- t(rbind(sapply(RomaData$ModuleSummary[[SeID]]$SampledExp, "[[", "ExpVar"),
+      Sampled.DF <- t(rbind(sapply(RomaData$ModuleSummary[[SeID]]$SampledExp, "[[", "ExpVar")[1:2,],
                             sapply(RomaData$ModuleSummary[[SeID]]$SampledExp, "[[", "MedianExp")))
 
-      Sampled.DF <- cbind(Sampled.DF, Sampled.DF[,2]/Sampled.DF[,1])
+      Sampled.DF <- cbind(Sampled.DF, Sampled.DF[,1]/Sampled.DF[,2])
 
       colnames(Sampled.DF) <- c("L1", "L2", "Exp", "L1/L2")
 
@@ -1340,7 +1346,7 @@ rRomaDash <- function(RomaData = NULL,
       Groups <- GetData()$Groups
       ProcessedSamples <- GetData()$ProcessedSamples
 
-      DataToPlot <- data.frame(Score = RomaData$ProjMatrix[SelectedGS(), ProcessedSamples],
+      DataToPlot <- data.frame(Score = RomaData$SampleMatrix[SelectedGS(), ProcessedSamples],
                                Group = Groups[ProcessedSamples])
 
       p <- ggplot2::ggplot(data = DataToPlot, ggplot2::aes(x = Group, y = Score)) +
@@ -1400,12 +1406,12 @@ rRomaDash <- function(RomaData = NULL,
 
         p <- ggplot2::ggplot(data = data.frame(Comp1 = Projs[,1],
                                                        Comp2 = Projs[,2],
-                                                       Score = RomaData$ProjMatrix[SelectedGS(), ProcessedSamples],
+                                                       Score = RomaData$SampleMatrix[SelectedGS(), ProcessedSamples],
                                                        Group = Groups[ProcessedSamples]),
                                      ggplot2::aes(x = Comp1, y = Comp2, shape = Group, color = Score)) +
           ggplot2::scale_color_gradient2(low = "blue", high = "red", mid = "white") +
           ggplot2::labs(x = "Component 1", y = "Component 2", shape = "",
-                        title = rownames(RomaData$ProjMatrix)[SelectedGS()]) +
+                        title = rownames(RomaData$SampleMatrix)[SelectedGS()]) +
           ggplot2::geom_point(ggplot2::aes(text = rownames(Projs)))
 
         print(ggplotly(p))
@@ -1435,12 +1441,12 @@ rRomaDash <- function(RomaData = NULL,
 
         p <- ggplot2::ggplot(data = data.frame(Comp1 = Projs[,1],
                                                Comp2 = Projs[,2],
-                                               Score = RomaData$ProjMatrix[SelectedGS(), ProcessedSamples],
+                                               Score = RomaData$SampleMatrix[SelectedGS(), ProcessedSamples],
                                                Group = Groups[ProcessedSamples]),
                              ggplot2::aes(x = Comp1, y = Comp2, shape = Group, color = Score)) +
           ggplot2::scale_color_gradient2(low = "blue", high = "red", mid = "white") +
           ggplot2::labs(x = "Component 1", y = "Component 2", shape = "",
-                        title = rownames(RomaData$ProjMatrix)[SelectedGS()]) +
+                        title = rownames(RomaData$SampleMatrix)[SelectedGS()]) +
           ggplot2::geom_point(size = 3)
         print(p)
       })
@@ -1464,7 +1470,7 @@ rRomaDash <- function(RomaData = NULL,
 
       Idx <- SelectedIdx()
 
-      PlotMat <- RomaData$ProjMatrix[Idx,]
+      PlotMat <- RomaData$SampleMatrix[Idx,]
 
       GSCat <- rep(NA, nrow(PlotMat))
       names(GSCat) <- rownames(PlotMat)
@@ -1600,11 +1606,11 @@ rRomaDash <- function(RomaData = NULL,
 
         if(length(Idx) == 1){
 
-          names(PlotMat) <- colnames(RomaData$ProjMatrix)
+          names(PlotMat) <- colnames(RomaData$SampleMatrix)
 
           pheatmap::pheatmap(t(PlotMat[GSOrdering,]), BaseCol[UseCol], breaks = MyBreaks,
                              cluster_rows = FALSE, cluster_cols = FALSE,
-                             main = paste("Score of", rownames(RomaData$ProjMatrix)[Idx]))
+                             main = paste("Score of", rownames(RomaData$SampleMatrix)[Idx]))
 
         }
       }
@@ -1693,7 +1699,7 @@ rRomaDash <- function(RomaData = NULL,
 
         if(length(Idx) == 1){
 
-          # names(PlotMat) <- colnames(RomaData$ProjMatrix)
+          # names(PlotMat) <- colnames(RomaData$SampleMatrix)
           SplitData <- split(data.frame(PlotMat[FoundSamp]), f=AddInfo$Groups)
 
           Aggmat <- sapply(SplitData, function(x) {
@@ -1764,7 +1770,7 @@ rRomaDash <- function(RomaData = NULL,
 
           pheatmap::pheatmap(t(Aggmat), color = BaseCol[UseCol], breaks = MyBreaks,
                              cluster_rows = FALSE, cluster_cols = FALSE,
-                             main = paste("Score of", rownames(RomaData$ProjMatrix)[Idx]))
+                             main = paste("Score of", rownames(RomaData$SampleMatrix)[Idx]))
         }
 
       }
@@ -1794,11 +1800,11 @@ rRomaDash <- function(RomaData = NULL,
 
       Idx <- SelectedIdx()
 
-      GSCat <- rep(NA, nrow(RomaData$ProjMatrix[Idx, ]))
-      names(GSCat) <- rownames(RomaData$ProjMatrix[Idx, ])
+      GSCat <- rep(NA, nrow(RomaData$SampleMatrix[Idx, ]))
+      names(GSCat) <- rownames(RomaData$SampleMatrix[Idx, ])
 
       if(input$GSOrdeMode == "None"){
-        GSOrdering <- order(rownames(PlotMat))
+        GSOrdering <- order(GSCat)
         GSCat = NULL
       }
 
@@ -1866,7 +1872,7 @@ rRomaDash <- function(RomaData = NULL,
       if(input$htype == "sample"){
 
         if(length(Idx)>1){
-          pheatmap::pheatmap(cor(t(RomaData$ProjMatrix[Idx,]), method = input$cortype)[GSOrdering, GSOrdering],
+          pheatmap::pheatmap(cor(t(RomaData$SampleMatrix[Idx,]), method = input$cortype)[GSOrdering, GSOrdering],
                              color = BaseCol[UseCol], breaks = MyBreaks,
                              annotation_row = GSCat, annotation_col = GSCat,
                              cluster_rows = input$gsclus, cluster_cols = input$gsclus,
@@ -1882,7 +1888,7 @@ rRomaDash <- function(RomaData = NULL,
 
         if(length(Idx) > 1){
 
-          SplitData <- split(data.frame(t(RomaData$ProjMatrix[Idx,FoundSamp])), f=AddInfo$Groups)
+          SplitData <- split(data.frame(t(RomaData$SampleMatrix[Idx,FoundSamp])), f=AddInfo$Groups)
 
           Aggmat <- sapply(SplitData, function(x) {
             apply(x, 2, get(input$aggfun))
@@ -1933,15 +1939,15 @@ rRomaDash <- function(RomaData = NULL,
                                        RomaData$ModuleSummary[[as.integer(input$gs_y)]]$UsedGenes)), " shared)",
                       sep = "")
 
-        CTitle <- cor(RomaData$ProjMatrix[as.integer(input$gs_x), ProcessedSamples],
-                     RomaData$ProjMatrix[as.integer(input$gs_y), ProcessedSamples],
+        CTitle <- cor(RomaData$SampleMatrix[as.integer(input$gs_x), ProcessedSamples],
+                     RomaData$SampleMatrix[as.integer(input$gs_y), ProcessedSamples],
                      method = input$cortype)
 
 
         if(input$htype == "sample"){
 
-          p <- ggplot2::ggplot(data = data.frame(XVal = RomaData$ProjMatrix[as.integer(input$gs_x), ProcessedSamples],
-                                                 YVal = RomaData$ProjMatrix[as.integer(input$gs_y), ProcessedSamples],
+          p <- ggplot2::ggplot(data = data.frame(XVal = RomaData$SampleMatrix[as.integer(input$gs_x), ProcessedSamples],
+                                                 YVal = RomaData$SampleMatrix[as.integer(input$gs_y), ProcessedSamples],
                                                  Group = Groups[ProcessedSamples]),
                                ggplot2::aes(x = XVal, y = YVal, color = Group)) +
             ggplot2::labs(x = XLab, y = YLab, shape = "", title = paste("Corr =", signif(CTitle, 5))) +
@@ -1952,8 +1958,8 @@ rRomaDash <- function(RomaData = NULL,
 
         if(input$htype == "group"){
 
-          AggX <- aggregate(RomaData$ProjMatrix[as.integer(input$gs_x), ProcessedSamples], list(AddInfo$Groups), get(input$aggfun))
-          AggY <- aggregate(RomaData$ProjMatrix[as.integer(input$gs_y), ProcessedSamples], list(AddInfo$Groups), get(input$aggfun))
+          AggX <- aggregate(RomaData$SampleMatrix[as.integer(input$gs_x), ProcessedSamples], list(AddInfo$Groups), get(input$aggfun))
+          AggY <- aggregate(RomaData$SampleMatrix[as.integer(input$gs_y), ProcessedSamples], list(AddInfo$Groups), get(input$aggfun))
 
           p <- ggplot2::ggplot(data = data.frame(XVal = AggX[,2],
                                                  YVal = AggY[,2],
@@ -1993,14 +1999,14 @@ rRomaDash <- function(RomaData = NULL,
                                        RomaData$ModuleSummary[[as.integer(input$gs_y)]]$UsedGenes)), " shared)",
                       sep = "")
 
-        CTitle <- cor(RomaData$ProjMatrix[as.integer(input$gs_x), ProcessedSamples],
-                      RomaData$ProjMatrix[as.integer(input$gs_y), ProcessedSamples],
+        CTitle <- cor(RomaData$SampleMatrix[as.integer(input$gs_x), ProcessedSamples],
+                      RomaData$SampleMatrix[as.integer(input$gs_y), ProcessedSamples],
                       method = input$cortype)
 
         if(input$htype == "sample"){
 
-          p <- ggplot2::ggplot(data = data.frame(XVal = RomaData$ProjMatrix[as.integer(input$gs_x), ProcessedSamples],
-                                                 YVal = RomaData$ProjMatrix[as.integer(input$gs_y), ProcessedSamples],
+          p <- ggplot2::ggplot(data = data.frame(XVal = RomaData$SampleMatrix[as.integer(input$gs_x), ProcessedSamples],
+                                                 YVal = RomaData$SampleMatrix[as.integer(input$gs_y), ProcessedSamples],
                                                  Group = Groups[ProcessedSamples]),
                                ggplot2::aes(x = XVal, y = YVal, color = Group)) +
             ggplot2::labs(x = XLab, y = YLab, shape = "", title = paste("Corr =", signif(CTitle, 5))) +
@@ -2011,8 +2017,8 @@ rRomaDash <- function(RomaData = NULL,
 
         if(input$htype == "group"){
 
-          AggX <- aggregate(RomaData$ProjMatrix[as.integer(input$gs_x), ProcessedSamples], list(AddInfo$Groups), get(input$aggfun))
-          AggY <- aggregate(RomaData$ProjMatrix[as.integer(input$gs_y), ProcessedSamples], list(AddInfo$Groups), get(input$aggfun))
+          AggX <- aggregate(RomaData$SampleMatrix[as.integer(input$gs_x), ProcessedSamples], list(AddInfo$Groups), get(input$aggfun))
+          AggY <- aggregate(RomaData$SampleMatrix[as.integer(input$gs_y), ProcessedSamples], list(AddInfo$Groups), get(input$aggfun))
 
 
            p <- ggplot2::ggplot(data = data.frame(XVal = AggX[,2],
@@ -2054,7 +2060,7 @@ rRomaDash <- function(RomaData = NULL,
       RomaData <- GetData()$RomaData
 
       if(!is.null(RomaData)){
-        Samples <- colnames(RomaData$ProjMatrix)
+        Samples <- colnames(RomaData$SampleMatrix)
         updateCheckboxGroupInput(session, "selSamples", choices = Samples, inline = TRUE)
       }
 
@@ -2331,7 +2337,7 @@ rRomaDash <- function(RomaData = NULL,
       if(input$availGenes != ""){
 
         GeneExp <- GetData()$ExpMat[input$availGenes, ]
-        ModScore <- GetData()$RomaData$ProjMatrix[SelectedGS(),]
+        ModScore <- GetData()$RomaData$SampleMatrix[SelectedGS(),]
 
         SampleNames <- intersect(names(GeneExp), names(ModScore))
 
