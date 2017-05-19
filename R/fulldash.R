@@ -199,14 +199,14 @@ rRomaDash <- function(RomaData = NULL,
                                        fluidRow(
                                          titlePanel("Expression matrix"),
                                          column(8,
-                                                fileInput("expmatfile", "Choose an expression matrix (TSV file)", accept = c(".tsv"))
+                                                fileInput("expmatfile", "Choose an expression matrix (TSV file)", accept = c(".tsv", ".txt"))
                                                 )
                                        ),
 
                                        fluidRow(
                                          titlePanel("Sample groups"),
                                          column(8,
-                                                fileInput("groupfile", "Choose a group matrix (TSV file)", accept = c(".tsv"))
+                                                fileInput("groupfile", "Choose a group matrix (TSV file)", accept = c(".tsv", ".txt"))
                                          ),
                                          column(4,
                                                 checkboxInput("usegroups", "Use groups", TRUE)
@@ -223,7 +223,7 @@ rRomaDash <- function(RomaData = NULL,
 
                                                 conditionalPanel(
                                                   condition="input.gmtsrc == 'File'",
-                                                  fileInput("gmtfile", "Choose a GMT file", accept = c(".gmt"))
+                                                  fileInput("gmtfile", "Choose a GMT file", accept = c(".gmt", ".txt"))
                                                 ),
 
                                                 conditionalPanel(
@@ -797,6 +797,14 @@ rRomaDash <- function(RomaData = NULL,
 
         PlainFile <- readr::read_tsv(file = inFile$datapath, col_names = TRUE)
 
+        EmptyColumns <- colSums(is.na(PlainFile)) == nrow(PlainFile)
+        EmptyRows <- rowSums(is.na(PlainFile)) >= ncol(PlainFile) - 1
+        
+        if(any(EmptyColumns) | any(EmptyRows)){
+          print("Filtering empty rows and columns")
+          PlainFile <- PlainFile[!EmptyRows, !EmptyColumns]
+        }
+        
         ExpMat <- data.matrix(PlainFile[,-1])
         rownames(ExpMat) <- unlist(PlainFile[,1])
 
@@ -1482,11 +1490,11 @@ rRomaDash <- function(RomaData = NULL,
 
       PlotMat <- RomaData$SampleMatrix[Idx,]
 
-      GSCat <- rep(NA, nrow(PlotMat))
-      names(GSCat) <- rownames(PlotMat)
+      GSCat <- rep(NA, nrow(RomaData$SampleMatrix))
+      names(GSCat) <- rownames(RomaData$SampleMatrix)
 
       if(input$GSOrdeMode == "None"){
-        GSOrdering <- order(rownames(PlotMat))
+        GSOrdering <- order(rownames(RomaData$SampleMatrix))
         GSCat = NULL
       }
 
@@ -1616,11 +1624,25 @@ rRomaDash <- function(RomaData = NULL,
 
         if(length(Idx) == 1){
 
-          names(PlotMat) <- colnames(RomaData$SampleMatrix)
-
-          pheatmap::pheatmap(t(PlotMat[GSOrdering,]), BaseCol[UseCol], breaks = MyBreaks,
-                             cluster_rows = FALSE, cluster_cols = FALSE,
-                             main = paste("Score of", rownames(RomaData$SampleMatrix)[Idx]))
+          PlotMat <- matrix(PlotMat, nrow = 1)
+          
+          colnames(PlotMat) <- colnames(RomaData$SampleMatrix)
+          
+          if(input$gscol){
+            pheatmap::pheatmap(PlotMat, color = BaseCol[UseCol], breaks = MyBreaks,
+                               cluster_cols = input$saclus, cluster_rows = FALSE,
+                               annotation_col = AddInfo,
+                               main = paste("Score of", rownames(RomaData$SampleMatrix)[Idx]))
+          } else {
+            pheatmap::pheatmap(t(PlotMat), color = BaseCol[UseCol], breaks = MyBreaks,
+                               cluster_rows = input$saclus, cluster_cols = FALSE,
+                               annotation_row = AddInfo,
+                               main = paste("Score of", rownames(RomaData$SampleMatrix)[Idx]))
+          }
+          
+          # pheatmap::pheatmap(PlotMat, BaseCol[UseCol], breaks = MyBreaks,
+          #                    cluster_rows = FALSE, cluster_cols = FALSE,
+          #                    main = paste("Score of", rownames(RomaData$SampleMatrix)[Idx]))
 
         }
       }
@@ -1809,9 +1831,9 @@ rRomaDash <- function(RomaData = NULL,
       BaseCol <- colorRamps::blue2red(54)
 
       Idx <- SelectedIdx()
-
-      GSCat <- rep(NA, nrow(RomaData$SampleMatrix[Idx, ]))
-      names(GSCat) <- rownames(RomaData$SampleMatrix[Idx, ])
+      
+      GSCat <- rep(NA, nrow(RomaData$SampleMatrix))
+      names(GSCat) <- rownames(RomaData$SampleMatrix)
 
       if(input$GSOrdeMode == "None"){
         GSOrdering <- order(GSCat)
