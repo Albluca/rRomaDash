@@ -375,8 +375,10 @@ rRomaDash <- function(RomaData = NULL,
                           conditionalPanel(
                             condition="input.ResTabs == 'Modules' && input.prjt == 'tSNE'",
                             sliderInput("perp", "tSNE perplexity:",
-                                        min = 0,  max = 50,  value = 0, step = .1),
-                            actionButton("dotSNE", "Compute tSNE")
+                                        min = 0,  max = 100,  value = 0, step = 1),
+                            numericInput("initial_dims", "Initial dimensions:", min = 2, max = NA, step = 1, value = 50),
+                            actionButton("dotSNE", "Compute tSNE"),
+                            hr()
                           ),
 
                           conditionalPanel(
@@ -1165,7 +1167,15 @@ rRomaDash <- function(RomaData = NULL,
         ExpMat <- GetData()$ExpMat
         ProcessedSamples <- GetData()$ProcessedSamples
 
-        tSNEProj <- Rtsne::Rtsne(X = t(ExpMat[,ProcessedSamples]), perplexity = input$perp)$Y
+        initial_dims <- as.integer(input$initial_dims)
+
+        if(initial_dims < 2){
+          initial_dims = 2
+        }
+
+        updateNumericInput(session, "initial_dims", value = initial_dims)
+
+        tSNEProj <- Rtsne::Rtsne(X = t(ExpMat[,ProcessedSamples]), perplexity = input$perp, initial_dims = initial_dims)$Y
         rownames(tSNEProj) <- ProcessedSamples
         colnames(tSNEProj) <- c("PC1", "PC2")
         print("tSNE computed")
