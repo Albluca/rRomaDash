@@ -199,14 +199,14 @@ rRomaDash <- function(RomaData = NULL,
                                        fluidRow(
                                          titlePanel("Expression matrix"),
                                          column(8,
-                                                fileInput("expmatfile", "Choose an expression matrix (TSV file)", accept = c(".tsv"))
+                                                fileInput("expmatfile", "Choose an expression matrix (TSV file)", accept = c(".tsv", ".txt"))
                                                 )
                                        ),
 
                                        fluidRow(
                                          titlePanel("Sample groups"),
                                          column(8,
-                                                fileInput("groupfile", "Choose a group matrix (TSV file)", accept = c(".tsv"))
+                                                fileInput("groupfile", "Choose a group matrix (TSV file)", accept = c(".tsv", ".txt"))
                                          ),
                                          column(4,
                                                 checkboxInput("usegroups", "Use groups", TRUE)
@@ -223,7 +223,7 @@ rRomaDash <- function(RomaData = NULL,
 
                                                 conditionalPanel(
                                                   condition="input.gmtsrc == 'File'",
-                                                  fileInput("gmtfile", "Choose a GMT file", accept = c(".gmt"))
+                                                  fileInput("gmtfile", "Choose a GMT file", accept = c(".gmt", ".txt"))
                                                 ),
 
                                                 conditionalPanel(
@@ -375,8 +375,10 @@ rRomaDash <- function(RomaData = NULL,
                           conditionalPanel(
                             condition="input.ResTabs == 'Modules' && input.prjt == 'tSNE'",
                             sliderInput("perp", "tSNE perplexity:",
-                                        min = 0,  max = 50,  value = 0, step = .1),
-                            actionButton("dotSNE", "Compute tSNE")
+                                        min = 0,  max = 100,  value = 0, step = 1),
+                            numericInput("initial_dims", "Initial dimensions:", min = 2, max = NA, step = 1, value = 50),
+                            actionButton("dotSNE", "Compute tSNE"),
+                            hr()
                           ),
 
                           conditionalPanel(
@@ -795,6 +797,14 @@ rRomaDash <- function(RomaData = NULL,
 
         PlainFile <- readr::read_tsv(file = inFile$datapath, col_names = TRUE)
 
+        EmptyColumns <- colSums(is.na(PlainFile)) == nrow(PlainFile)
+        EmptyRows <- rowSums(is.na(PlainFile)) >= ncol(PlainFile) - 1
+        
+        if(any(EmptyColumns) | any(EmptyRows)){
+          print("Filtering empty rows and columns")
+          PlainFile <- PlainFile[!EmptyRows, !EmptyColumns]
+        }
+        
         ExpMat <- data.matrix(PlainFile[,-1])
         rownames(ExpMat) <- unlist(PlainFile[,1])
 
@@ -1165,7 +1175,15 @@ rRomaDash <- function(RomaData = NULL,
         ExpMat <- GetData()$ExpMat
         ProcessedSamples <- GetData()$ProcessedSamples
 
-        tSNEProj <- Rtsne::Rtsne(X = t(ExpMat[,ProcessedSamples]), perplexity = input$perp)$Y
+        initial_dims <- as.integer(input$initial_dims)
+
+        if(initial_dims < 2){
+          initial_dims = 2
+        }
+
+        updateNumericInput(session, "initial_dims", value = initial_dims)
+
+        tSNEProj <- Rtsne::Rtsne(X = t(ExpMat[,ProcessedSamples]), perplexity = input$perp, initial_dims = initial_dims)$Y
         rownames(tSNEProj) <- ProcessedSamples
         colnames(tSNEProj) <- c("PC1", "PC2")
         print("tSNE computed")
@@ -1472,11 +1490,11 @@ rRomaDash <- function(RomaData = NULL,
 
       PlotMat <- RomaData$SampleMatrix[Idx,]
 
-      GSCat <- rep(NA, nrow(PlotMat))
-      names(GSCat) <- rownames(PlotMat)
+      GSCat <- rep(NA, nrow(RomaData$SampleMatrix))
+      names(GSCat) <- rownames(RomaData$SampleMatrix)
 
       if(input$GSOrdeMode == "None"){
-        GSOrdering <- order(rownames(PlotMat))
+        GSOrdering <- order(rownames(RomaData$SampleMatrix))
         GSCat = NULL
       }
 
@@ -1606,11 +1624,25 @@ rRomaDash <- function(RomaData = NULL,
 
         if(length(Idx) == 1){
 
-          names(PlotMat) <- colnames(RomaData$SampleMatrix)
-
-          pheatmap::pheatmap(t(PlotMat[GSOrdering,]), BaseCol[UseCol], breaks = MyBreaks,
-                             cluster_rows = FALSE, cluster_cols = FALSE,
-                             main = paste("Score of", rownames(RomaData$SampleMatrix)[Idx]))
+          PlotMat <- matrix(PlotMat, nrow = 1)
+          
+          colnames(PlotMat) <- colnames(RomaData$SampleMatrix)
+          
+          if(input$gscol){
+            pheatmap::pheatmap(PlotMat, color = BaseCol[UseCol], breaks = MyBreaks,
+                               cluster_cols = input$saclus, cluster_rows = FALSE,
+                               annotation_col = AddInfo,
+                               main = paste("Score of", rownames(RomaData$SampleMatrix)[Idx]))
+          } else {
+            pheatmap::pheatmap(t(PlotMat), color = BaseCol[UseCol], breaks = MyBreaks,
+                               cluster_rows = input$saclus, cluster_cols = FALSE,
+                               annotation_row = AddInfo,
+                               main = paste("Score of", rownames(RomaData$SampleMatrix)[Idx]))
+          }
+          
+          # pheatmap::pheatmap(PlotMat, BaseCol[UseCol], breaks = MyBreaks,
+          #                    cluster_rows = FALSE, cluster_cols = FALSE,
+          #                    main = paste("Score of", rownames(RomaData$SampleMatrix)[Idx]))
 
         }
       }
@@ -1799,9 +1831,9 @@ rRomaDash <- function(RomaData = NULL,
       BaseCol <- colorRamps::blue2red(54)
 
       Idx <- SelectedIdx()
-
-      GSCat <- rep(NA, nrow(RomaData$SampleMatrix[Idx, ]))
-      names(GSCat) <- rownames(RomaData$SampleMatrix[Idx, ])
+      
+      GSCat <- rep(NA, nrow(RomaData$SampleMatrix))
+      names(GSCat) <- rownames(RomaData$SampleMatrix)
 
       if(input$GSOrdeMode == "None"){
         GSOrdering <- order(GSCat)
