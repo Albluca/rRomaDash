@@ -795,16 +795,23 @@ rRomaDash <- function(RomaData = NULL,
       } else {
         print(paste("Loading", inFile$datapath))
 
-        PlainFile <- readr::read_tsv(file = inFile$datapath, col_names = TRUE)
+        PlainFile.Head <- readr::read_tsv(file = inFile$datapath, col_names = TRUE, n_max = 1)
+
+        ListSpec <- list('c', 'd')
+        names(ListSpec) <- c(colnames(PlainFile.Head)[1], '.default')
+
+        PlainFile <- readr::read_tsv(file = inFile$datapath,
+                                     col_types = do.call(what = readr::cols, args = ListSpec),
+                                     col_names = TRUE)
 
         EmptyColumns <- colSums(is.na(PlainFile)) == nrow(PlainFile)
         EmptyRows <- rowSums(is.na(PlainFile)) >= ncol(PlainFile) - 1
-        
+
         if(any(EmptyColumns) | any(EmptyRows)){
           print("Filtering empty rows and columns")
           PlainFile <- PlainFile[!EmptyRows, !EmptyColumns]
         }
-        
+
         ExpMat <- data.matrix(PlainFile[,-1])
         rownames(ExpMat) <- unlist(PlainFile[,1])
 
@@ -1494,8 +1501,8 @@ rRomaDash <- function(RomaData = NULL,
       names(GSCat) <- rownames(RomaData$SampleMatrix)
 
       if(input$GSOrdeMode == "None"){
-        GSOrdering <- order(rownames(RomaData$SampleMatrix))
-        GSCat = NULL
+        GSOrdering <- order(rownames(RomaData$SampleMatrix[Idx,]))
+        GSCat <- NA
       }
 
       if(input$GSOrdeMode == "Gene number"){
@@ -1604,18 +1611,19 @@ rRomaDash <- function(RomaData = NULL,
 
         }
 
-
         if(length(Idx)>1){
 
           if(input$gscol){
             pheatmap::pheatmap(PlotMat[GSOrdering,], color = BaseCol[UseCol], breaks = MyBreaks,
                                cluster_rows = input$gsclus, cluster_cols = input$saclus,
-                               annotation_col = AddInfo, annotation_row = GSCat,
+                               annotation_col = AddInfo,
+                               annotation_row = GSCat,
                                main = "Module scores across samples")
           } else {
             pheatmap::pheatmap(t(PlotMat[GSOrdering,]), color = BaseCol[UseCol], breaks = MyBreaks,
                                cluster_rows = input$saclus, cluster_cols = input$gsclus,
-                               annotation_row = AddInfo, annotation_col = GSCat,
+                               annotation_row = AddInfo,
+                               annotation_col = GSCat,
                                main = "Module scores across samples")
           }
 
@@ -1625,9 +1633,9 @@ rRomaDash <- function(RomaData = NULL,
         if(length(Idx) == 1){
 
           PlotMat <- matrix(PlotMat, nrow = 1)
-          
+
           colnames(PlotMat) <- colnames(RomaData$SampleMatrix)
-          
+
           if(input$gscol){
             pheatmap::pheatmap(PlotMat, color = BaseCol[UseCol], breaks = MyBreaks,
                                cluster_cols = input$saclus, cluster_rows = FALSE,
@@ -1639,7 +1647,7 @@ rRomaDash <- function(RomaData = NULL,
                                annotation_row = AddInfo,
                                main = paste("Score of", rownames(RomaData$SampleMatrix)[Idx]))
           }
-          
+
           # pheatmap::pheatmap(PlotMat, BaseCol[UseCol], breaks = MyBreaks,
           #                    cluster_rows = FALSE, cluster_cols = FALSE,
           #                    main = paste("Score of", rownames(RomaData$SampleMatrix)[Idx]))
@@ -1831,13 +1839,13 @@ rRomaDash <- function(RomaData = NULL,
       BaseCol <- colorRamps::blue2red(54)
 
       Idx <- SelectedIdx()
-      
+
       GSCat <- rep(NA, nrow(RomaData$SampleMatrix))
       names(GSCat) <- rownames(RomaData$SampleMatrix)
 
       if(input$GSOrdeMode == "None"){
-        GSOrdering <- order(GSCat)
-        GSCat = NULL
+        GSOrdering <- order(rownames(RomaData$SampleMatrix[Idx,]))
+        GSCat <- NA
       }
 
       if(input$GSOrdeMode == "Gene number"){
