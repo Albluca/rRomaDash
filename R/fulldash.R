@@ -795,7 +795,14 @@ rRomaDash <- function(RomaData = NULL,
       } else {
         print(paste("Loading", inFile$datapath))
 
-        PlainFile <- readr::read_tsv(file = inFile$datapath, col_names = TRUE)
+        PlainFile.Head <- readr::read_tsv(file = inFile$datapath, col_names = TRUE, n_max = 1)
+
+        ListSpec <- list('c', 'd')
+        names(ListSpec) <- c(colnames(PlainFile.Head)[1], '.default')
+
+        PlainFile <- readr::read_tsv(file = inFile$datapath,
+                                     col_types = do.call(what = readr::cols, args = ListSpec),
+                                     col_names = TRUE)
 
         EmptyColumns <- colSums(is.na(PlainFile)) == nrow(PlainFile)
         EmptyRows <- rowSums(is.na(PlainFile)) >= ncol(PlainFile) - 1
