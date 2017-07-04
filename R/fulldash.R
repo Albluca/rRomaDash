@@ -229,19 +229,39 @@ rRomaDash <- function(RomaData = NULL,
                                                 conditionalPanel(
                                                   condition="input.gmtsrc == 'Internal'",
                                                   selectInput("gmtlist", "Available geneset list:", InternalGMTList)
-                                                )
+                                                ),
+
+                                                textInput("msigkw", "Keywords", ""),
+                                                checkboxInput("msigkwall", "search all keywords", FALSE),
+                                                checkboxInput("loadwei", "load weights", FALSE)
 
                                                 ),
 
                                          column(6,
-                                                textInput("msigkw", "Keywords", ""),
-                                                checkboxInput("msigkwall", "search all keywords", FALSE),
-                                                checkboxInput("loadwei", "load weights", FALSE)
+
+                                                selectInput("sourceOrg", "Source organism:",
+                                                            list("H. sapiens" = "hsapiens",
+                                                                 "M. musculus" = "mmusculus")),
+
+                                                selectInput("targetOrg", "Target organism:",
+                                                            list("H. sapiens" = "hsapiens",
+                                                                 "M. musculus" = "mmusculus")),
+
+                                                selectInput("sourceName", "Source gene ID:",
+                                                            list("Name" = "Names",
+                                                                 "Ensembl" = "Ensembl")),
+
+                                                selectInput("targetName", "Target gene ID:",
+                                                            list("Name" = "Names",
+                                                                 "Ensembl" = "Ensembl")),
+
+                                                checkboxInput("convertGeneID", "Convert geneset genes IDs", FALSE)
                                          ),
 
                                          column(12,
-                                                actionButton("searchDB", "Apply")
+                                                actionButton("searchDB", "Search genesets")
                                          )
+
 
                                        ),
 
@@ -739,7 +759,6 @@ rRomaDash <- function(RomaData = NULL,
       if(input$gmtsrc == "File"){
 
         ModuleList <- GetGMTFile()
-        return(ModuleList)
 
       }
 
@@ -751,20 +770,35 @@ rRomaDash <- function(RomaData = NULL,
           KWStrings <- unlist(strsplit(trimws(input$msigkw), split = " ", fixed = TRUE))
         }
 
-        FoundGS <- SelectFromInternalDB(SearchString = KWStrings,
+        ModuleList <- SelectFromInternalDB(SearchString = KWStrings,
                                         Mode = ifelse(input$msigkwall, "ALL", "ANY"),
                                         BDName = input$gmtlist, Version = NULL)
 
         if(!input$loadwei){
-          FoundGS <- lapply(FoundGS, function(GS) {
+          ModuleList <- lapply(ModuleList, function(GS) {
             GS$Weigths[!is.na(GS$Weigths)] <- NA
             return(GS)
           })
         }
 
-        return(FoundGS)
+      }
+
+      if(input$convertGeneID){
+
+        ModuleList <- ConvertModuleNames(
+          ModuleList,
+          SourceOrganism = input$sourceOrg,
+          TargetOrganism = input$targetOrg,
+          SourceTypes = input$sourceName,
+          TargetTypes = input$targetName,
+          HomologyLevel = 1,
+          HOST = NULL,
+          PATH = NULL)
 
       }
+
+      return(ModuleList)
+
 
     }, ignoreInit = FALSE, ignoreNULL = FALSE)
 
