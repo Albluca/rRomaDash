@@ -504,8 +504,35 @@ rRomaDash <- function(RomaData = NULL,
                                         max = 0,  min = -1,  value = -1, step = .1),
                             sliderInput("ucor", "Upper limit",
                                         max = 1,  min = 0,  value = 1, step = .1)
+                          ),
+                          
+                          conditionalPanel(
+                            condition="input.ResTabs == 'Top contributing genes'",
+                            sliderInput("gperc", "Percentage of genes",
+                                        max = 100,  min = 10,  value = 10, step = 5),
+                            selectInput("contrType", "Controbution type:",
+                                        list("Positive" = "Pos",
+                                             "Negative" = "Neg",
+                                             "Absolute" = "Abs"), selected = "Absolute"),
+                            selectInput("contrMode", "Selection mode:",
+                                        list("Weights" = "Wei",
+                                             "Correlation" = "Cor"), selected = "Weights")
+                          ),
+                          
+                          
+                          conditionalPanel(
+                            condition="input.ResTabs == 'Top contributing genes'  && input.contrMode == 'Cor'",
+                            selectInput("corrType", "Correlation type:",
+                                        list("Pearson" = "pearson",
+                                             "Kendall" = "kendall",
+                                             "Spearman" = "spearman"), selected = "Pearson")
+                            
+                          ),
+                          
+                          conditionalPanel(
+                            condition="input.ResTabs == 'Top contributing genes'",
+                            actionButton("doTop", "Compute contributing genes")
                           )
-
 
                         ),
 
@@ -653,13 +680,19 @@ rRomaDash <- function(RomaData = NULL,
                                                )
 
 
+                                      ),
+                                      
+                                      # SubTab 7 ---------------------------------------------------------
+                                      tabPanel("Top contributing genes", id = "tab6",
+                                               
+                                               fluidRow(
+                                                 column(12,
+                                                        dataTableOutput("TopContributingGenes"))
+                                               )
                                       )
                           )
-
                         )
-
                       )
-
                       ),
 
              # Save / Load  (Top Tab 4) ---------------------------------------------------------
@@ -2431,6 +2464,141 @@ rRomaDash <- function(RomaData = NULL,
 
     })
 
+    
+    
+    # Compute Top contributing genes ---------------------------------------------------------
+    
+    GetContrGenes <- eventReactive(input$doTop, {
+      
+      ExpMat <- GetData()$ExpMat
+      RomaData <- GetData()$RomaData
+      ModuleIDs <- SelectedIdx()
+      
+      print(ModuleIDs)
+      
+      print(as.numeric(input$gperc)/100)
+      print(input$contrMode)
+      print(input$contrType)
+      print(input$corrType)
+      
+      
+      TopContrGenes <- GetTopContrib(RomaData = RomaData, Selected = ModuleIDs, ExpressionMatrix = ExpMat,
+                                     nGenes = as.numeric(input$gperc)/100, Mode = input$contrMode,
+                                     OrderType = input$contrType, CorMethod = input$corrType,
+                                     ColorGradient = colorRamps::blue2red(50),
+                                     Plot = FALSE, cluster_cols = FALSE, HMTite = "Top contributing genes")
+  
+      # print(data.frame(TopContrGenes$Table))
+      
+      # output$TopContributingGenes <- renderDataTable({data.frame(TopContrGenes$RetTable)})
+      
+      return(list(RetTable = TopContrGenes$Table))
+      
+    }, ignoreInit = TRUE)
+    
+    output$TopContributingGenes <- renderDataTable({
+
+      return(data.frame(GetContrGenes()$RetTable))
+
+    })
+    
+    
+    # output$CorrCI <- renderPlot({
+    #   
+    #   AllGenesCorr <- GetCorrs()$CorInfo$Genes
+    #   
+    #   if(GetCorrs()$Method != input$cortype | GetCorrs()$ModuleID != SelectedGS()){
+    #     updateSelectInput(session, "availGenes", choices = list())
+    #     return(NULL)
+    #   }
+    #   
+    #   # Filter genes
+    #   
+    #   AllGenesCorr <- AllGenesCorr[as.numeric(AllGenesCorr[,"p.val"]) <= (1 - as.numeric(input$corlelvel)), ]
+    #   
+    #   # Get direction
+    #   
+    #   SelGenes <- NULL
+    #   
+    #   if(input$contribType == "Positive"){
+    #     SelGenes <- which(as.numeric(AllGenesCorr[,"cor"]) > 0)
+    #   }
+    #   
+    #   if(input$contribType == "Negative"){
+    #     SelGenes <- which(as.numeric(AllGenesCorr[,"cor"]) < 0)
+    #   }
+    #   
+    #   if(length(SelGenes) == 0){
+    #     return(NULL)
+    #     updateSelectInput(session, "availGenes", choices = list())
+    #   }
+    #   
+    #   GeneNames <- AllGenesCorr[SelGenes, "gene"]
+    #   GeneLabels <- paste(GeneNames, signif(as.numeric(AllGenesCorr[SelGenes, "cor"]), 4),
+    #                       sep = ' | cor = ')
+    #   
+    #   RetList <- as.list(GeneNames)
+    #   names(RetList) <- GeneLabels
+    #   
+    #   updateSelectInput(session, "availGenes",
+    #                     choices = RetList[order(as.numeric(AllGenesCorr[SelGenes, "cor"]))])
+    #   
+    #   
+    #   AllGenesCorr.DF <- data.frame(AllGenesCorr[SelGenes,])
+    #   AllGenesCorr.DF$cor <- as.numeric(as.character(AllGenesCorr.DF$cor))
+    #   AllGenesCorr.DF$p.val <- as.numeric(as.character(AllGenesCorr.DF$p.val))
+    #   AllGenesCorr.DF$gene <- factor(as.character(AllGenesCorr.DF$gene),
+    #                                  levels = as.character(AllGenesCorr.DF$gene)[order(AllGenesCorr.DF$cor)])
+    #   
+    #   if(input$cortype == "pearson"){
+    #     AllGenesCorr.DF$ci.low <- as.numeric(as.character(AllGenesCorr.DF$ci.low))
+    #     AllGenesCorr.DF$ci.high <- as.numeric(as.character(AllGenesCorr.DF$ci.high))
+    #     
+    #     p <- ggplot2::ggplot(data = AllGenesCorr.DF,
+    #                          ggplot2::aes(x = gene, y = cor, ymin = ci.low, ymax = ci.high)) +
+    #       ggplot2::geom_pointrange() + ggplot2::geom_point() + ggplot2::coord_flip() +
+    #       ggplot2::labs(y = "Correlation")
+    #     
+    #   } else {
+    #     
+    #     p <- ggplot2::ggplot(data = AllGenesCorr.DF,
+    #                          ggplot2::aes(x = gene, y = cor)) +
+    #       ggplot2::geom_point() + ggplot2::coord_flip() +
+    #       ggplot2::labs(y = "Correlation")
+    #     
+    #   }
+    #   
+    #   
+    #   if(input$contribType == "Positive"){
+    #     p <- p + ggplot2::scale_y_continuous(limits = c(0, 1))
+    #   }
+    #   
+    #   if(input$contribType == "Negative"){
+    #     p <- p + ggplot2::scale_y_continuous(limits = c(-1, 0))
+    #   }
+    #   
+    #   print(p)
+    #   
+    # })
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
     # Save data locally ---------------------------------------------------------
 
