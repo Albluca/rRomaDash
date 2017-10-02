@@ -13,7 +13,8 @@ Depends:
     R (>= 3.0),
     rRoma,
     shiny,
-    shinyFiles
+    shinyFiles,
+    visNetwork
 Imports:
     parallel,
     readr,

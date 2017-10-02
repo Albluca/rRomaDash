@@ -417,24 +417,23 @@ rRomaDash <- function(RomaData = NULL,
                           ),
 
                           conditionalPanel(
-                            condition="input.ResTabs == 'Heatmap' || input.ResTabs == 'Correlation'",
-                            selectInput("htype", "Heatmap type:", SelList)
+                            condition="input.ResTabs == 'Heatmap' || input.ResTabs == 'Correlation' || input.ResTabs == 'Correlation network'",
+                            selectInput("htype", "Operation type:", SelList)
                           ),
 
                           conditionalPanel(
-                            condition="(input.ResTabs == 'Heatmap' || input.ResTabs == 'Correlation') && input.htype == 'group'",
+                            condition="(input.ResTabs == 'Heatmap' || input.ResTabs == 'Correlation' || input.ResTabs == 'Correlation network') && input.htype == 'group'",
                             selectInput("aggfun", "Aggregating function:", SelListAF)
                           ),
 
-
                           conditionalPanel(
-                            condition="input.ResTabs == 'Correlation' || input.ResTabs == 'Gene contribution'",
+                            condition="input.ResTabs == 'Correlation' || input.ResTabs == 'Gene contribution' || input.ResTabs == 'Correlation network'",
                             selectInput("cortype", "Correlation method:",
                                         list("Pearson" = "pearson",
                                              "Kendall" = "kendall",
                                              "Spearman" = "spearman"))
                           ),
-
+                          
                           conditionalPanel(
                             condition="input.ResTabs == 'Gene contribution'",
                             selectInput("corlelvel", "Confidence level:",
@@ -443,6 +442,12 @@ rRomaDash <- function(RomaData = NULL,
                             hr()
                           ),
 
+                          conditionalPanel(
+                            condition="input.ResTabs == 'Correlation network'",
+                            sliderInput("corthr", "Threshold:",
+                                        min = 0,  max = 1,  value = .6, step = .01)
+                          ),
+                          
                           conditionalPanel(
                             condition="input.ResTabs == 'Heatmap'",
                             checkboxInput("gscol", "Samples on columns", FALSE),
@@ -688,6 +693,15 @@ rRomaDash <- function(RomaData = NULL,
                                                fluidRow(
                                                  column(12,
                                                         dataTableOutput("TopContributingGenes"))
+                                               )
+                                      ),
+                                      
+                                      # SubTab 8 ---------------------------------------------------------
+                                      tabPanel("Correlation network", id = "tab7",
+                                               
+                                               fluidRow(
+                                                 column(12,
+                                                        visNetworkOutput("CorNet", height = "1500px"))
                                                )
                                       )
                           )
@@ -2503,6 +2517,10 @@ rRomaDash <- function(RomaData = NULL,
     })
     
     
+    
+    
+    
+    
     # output$CorrCI <- renderPlot({
     #   
     #   AllGenesCorr <- GetCorrs()$CorInfo$Genes
@@ -2586,7 +2604,96 @@ rRomaDash <- function(RomaData = NULL,
     
     
     
+    # Correlation network ---------------------------------------------------------
     
+    output$CorNet <- renderVisNetwork({
+      
+      RomaData <- GetData()$RomaData
+      Groups <- GetData()$Groups
+      ProcessedSamples <- GetData()$ProcessedSamples
+      AddInfo <- GetData()$AddInfo
+      FoundSamp <- GetData()$FoundSamp
+      
+      if(is.null(RomaData)){
+        return(NULL)
+      }
+      
+      BaseCol <- colorRamps::blue2red(54)
+      
+      Idx <- SelectedIdx()
+      
+      GSCat <- rep(NA, nrow(RomaData$SampleMatrix))
+      names(GSCat) <- rownames(RomaData$SampleMatrix)
+      
+      if(length(Idx) == 0){
+        return(NULL)
+      }
+      
+      if(input$htype == "sample"){
+        
+        if(length(Idx)>1){
+          CorMat <- cor(t(RomaData$SampleMatrix[Idx,]), method = input$cortype)
+          
+        }
+        
+        if(length(Idx) == 1){
+          return(NULL)
+        }
+      }
+      
+      
+      if(input$htype == "group"){
+        
+        if(length(Idx) > 1){
+          
+          SplitData <- split(data.frame(t(RomaData$SampleMatrix[Idx,FoundSamp])), f=AddInfo$Groups)
+          
+          Aggmat <- sapply(SplitData, function(x) {
+            apply(x, 2, get(input$aggfun))
+          })
+          
+          CorMat <- cor(t(Aggmat), method = input$cortype)
+          
+        }
+        
+        if(length(Idx) == 1){
+          return(NULL)
+        }
+        
+      }
+      
+      
+      
+      
+      
+      CorMat[abs(CorMat) < input$corthr] <- 0
+      # CorMat <- CorMat[any(rowSums(abs(CorMat)>0)>0),
+      #                  any(colSums(abs(CorMat)>0)>0)]
+      
+      CorMat[upper.tri(CorMat, diag = TRUE)] <- 0
+      print(CorMat)
+      
+      nodes <- data.frame(id = 1:nrow(CorMat),
+                          label = rownames(CorMat))
+      
+      tEgd <- which(abs(CorMat) > 0, arr.ind = TRUE)
+      CorValVect <- CorMat[which(abs(CorMat) > 0)]
+      
+      ColVect <- rep("blue", length(CorValVect))
+      ColVect[CorValVect > 0] <- "red"
+      
+      print(ColVect)
+      print(tEgd)
+      
+      edges <- data.frame(from = tEgd[,1], to = tEgd[,2], color = ColVect, title = CorValVect, value = abs(CorValVect), physics = FALSE)
+      
+      return(visNetwork(nodes, edges))
+      
+
+      
+      # minimal example
+      
+    })
     
     
     
