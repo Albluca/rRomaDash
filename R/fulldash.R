@@ -112,8 +112,6 @@ rRomaDash <- function(RomaData = NULL,
     library(plotly)
   }
 
-
-
   # if(Interactive){
   #   print("Using plotly. This can cause problems on some systems. Try setting 'Interactive = FALSE' if errors are encountered")
   # } else {
@@ -121,6 +119,7 @@ rRomaDash <- function(RomaData = NULL,
   # }
 
   StartTime <- Sys.time()
+  print(paste("Interface starting", StartTime))
 
   TimeVect <- rep(StartTime, 3)
   names(TimeVect) <- c("Upload", "Local", "Analysis")
@@ -769,6 +768,8 @@ rRomaDash <- function(RomaData = NULL,
 
     GetGMTFile <- reactive({
 
+      print("Reading the GMT file")
+      
       inFile <- input$gmtfile
 
       if(is.null(inFile)){
@@ -804,13 +805,14 @@ rRomaDash <- function(RomaData = NULL,
     GetModuleList <- eventReactive(input$searchDB, {
 
       if(input$gmtsrc == "File"){
-
+        print("Loading GMT from file")
         ModuleList <- GetGMTFile()
-
       }
 
       if(input$gmtsrc == "Internal"){
 
+        print("Loading from internal database")
+        
         if(trimws(input$msigkw) == ""){
           KWStrings <- ""
         } else {
@@ -832,6 +834,8 @@ rRomaDash <- function(RomaData = NULL,
 
       if(input$convertGeneID){
 
+        print("Performing coversion")
+        
         ModuleList <- ConvertModuleNames(
           ModuleList,
           SourceOrganism = input$sourceOrg,
@@ -844,6 +848,8 @@ rRomaDash <- function(RomaData = NULL,
 
       }
 
+      print("Returning module list")
+      
       return(ModuleList)
 
 
@@ -872,15 +878,18 @@ rRomaDash <- function(RomaData = NULL,
       inFile <- input$expmatfile
 
       if(is.null(inFile)){
+        print("No input expression matrix specified")
         return(NULL)
       } else {
         print(paste("Loading", inFile$datapath))
 
+        print("Loading header")
         PlainFile.Head <- readr::read_tsv(file = inFile$datapath, col_names = TRUE, n_max = 1)
 
         ListSpec <- list('c', 'd')
         names(ListSpec) <- c(colnames(PlainFile.Head)[1], '.default')
 
+        print("Loading data")
         PlainFile <- readr::read_tsv(file = inFile$datapath,
                                      col_types = do.call(what = readr::cols, args = ListSpec),
                                      col_names = TRUE)
@@ -953,20 +962,24 @@ rRomaDash <- function(RomaData = NULL,
 
       print("Running ROMA")
 
-      # Get expression matrix
+      print("Reading expression matrix")
       MatData <- GetExpMat()
 
       if(is.null(MatData)){
+        print("No expression matrix loaded")
         return(NULL)
+      } else {
+        print(paste("A", dim(ExpMat), "has been loaded"))
       }
 
-      # Get groups
+      print("Reading group information")
       GroupVect <- GetGroups()
 
-      # Get Module list
+      print("Reading modules information")
       ModuleList <- GetModuleList()
 
       if(is.null(ModuleList)){
+        print("No modules loaded")
         return(NULL)
       }
 
@@ -980,6 +993,7 @@ rRomaDash <- function(RomaData = NULL,
         Cleaned_PCSignThr <- as.numeric(input$par_PCSignThr)
       }
 
+      TimeVect["Analysis"] <<- Sys.time()
 
       RomaData <- rRoma.R(
         ExpressionMatrix = MatData, ModuleList = ModuleList,
@@ -1141,17 +1155,19 @@ rRomaDash <- function(RomaData = NULL,
 
     GetData <- reactive({
 
-      print("Getting Data")
-
-      print("Trying to load uploaded ROMA data")
+      print("Trying to load past ROMA data")
       LoadDataStatus <- LoadPastRoma()
 
-      print("Trying to load ROMA input")
+      print("Trying to run ROMA with input data")
       LoadInputStatus <- RunROMA()
 
-      print("Trying to load local ROMA data")
+      print("Trying to load previous ROMA data from the running computer")
       LoadServerStatus <- LoadFromServer()
 
+      print(TimeVect)
+      print(StartTime)
+      print(all(TimeVect == StartTime))
+      
       if(all(TimeVect == StartTime)){
 
         return(list(
@@ -2743,7 +2759,7 @@ rRomaDash <- function(RomaData = NULL,
     # Load data locally ---------------------------------------------------------
 
     LoadFromServer <- reactive({
-
+      
       fileinfo <- parseFilePaths(Volumes, input$load)
 
       if (nrow(fileinfo) > 0) {
